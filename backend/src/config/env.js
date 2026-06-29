@@ -78,4 +78,5 @@ export default {
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
   backendUrl: process.env.BACKEND_URL,
   renderUrl: process.env.RENDER_EXTERNAL_URL,
+  telebirrAccount: process.env.TELEBIRR_ACCOUNT || '0982863015',
 };

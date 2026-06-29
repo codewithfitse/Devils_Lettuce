@@ -69,6 +69,18 @@ export default function PaymentUpload() {
           Select accepted orders to pay for. One payment can cover multiple orders.
         </p>
 
+        <p
+          style={{
+            marginBottom: '1rem',
+            padding: '0.75rem 1rem',
+            background: 'var(--color-surface-elevated, rgba(61, 139, 95, 0.12))',
+            borderRadius: '8px',
+            fontWeight: 600,
+          }}
+        >
+          Telebirr Account: 0982863015
+        </p>
+
         {acceptedOrders.map((order) => (
           <label key={order._id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
             <input

@@ -33,7 +33,8 @@ export const notifications = {
       user.telegramId,
       `✅ <b>Order Accepted!</b>\n` +
         `Order #${order._id.toString().slice(-6)} has been accepted.\n` +
-        `Please upload your Telebirr payment proof.`
+        `Please upload your Telebirr payment proof.\n\n` +
+        `<b>Telebirr Account: ${env.telebirrAccount}</b>`
     );
   },
 

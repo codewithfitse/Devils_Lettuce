@@ -316,7 +316,10 @@ export function startBot() {
       }
 
       ctx.session.awaitingPayment = accepted.map((o) => o._id);
-      await ctx.reply(t(lang, 'sendPaymentProof'));
+      await ctx.reply(
+        `${t(lang, 'sendPaymentProof')}\n\n<b>${t(lang, 'telebirrAccount', { account: env.telebirrAccount })}</b>`,
+        { parse_mode: 'HTML' }
+      );
     } catch {
       ctx.reply(t(lang, 'error'));
     }
