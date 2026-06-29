@@ -13,11 +13,17 @@ async function bootstrap() {
   });
 
   if (env.telegram.botToken && env.telegram.enabled) {
+    console.log('Starting Telegram bot...');
     startBot();
+    if (env.telegram.usingLocalToken) {
+      console.log('Telegram bot using TELEGRAM_BOT_TOKEN_LOCAL (dev test bot)');
+    }
   } else if (env.telegram.botToken) {
-    console.log(
-      'Telegram bot skipped (ENABLE_TELEGRAM_BOT=false or non-production). API still runs.'
-    );
+    const hint =
+      process.env.ENABLE_TELEGRAM_BOT === 'false'
+        ? 'ENABLE_TELEGRAM_BOT=false'
+        : 'set ENABLE_TELEGRAM_BOT=true or TELEGRAM_BOT_TOKEN_LOCAL for local testing';
+    console.log(`Telegram bot skipped (${hint}). API still runs.`);
   }
 
   startKeepAlive();

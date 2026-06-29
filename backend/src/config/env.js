@@ -32,9 +32,29 @@ function parseCorsOrigins() {
   return list;
 }
 
+const nodeEnv = process.env.NODE_ENV || 'development';
+const port = parseInt(process.env.PORT, 10) || 5000;
+const isProduction = nodeEnv === 'production';
+
+function resolveBotToken() {
+  if (!isProduction && process.env.TELEGRAM_BOT_TOKEN_LOCAL) {
+    return process.env.TELEGRAM_BOT_TOKEN_LOCAL;
+  }
+  return process.env.TELEGRAM_BOT_TOKEN;
+}
+
+function resolveTelegramEnabled() {
+  if (process.env.ENABLE_TELEGRAM_BOT === 'false') return false;
+  if (process.env.ENABLE_TELEGRAM_BOT === 'true') return true;
+  // Dev-only test bot from @BotFather — avoids 409 with Render production bot
+  if (!isProduction && process.env.TELEGRAM_BOT_TOKEN_LOCAL) return true;
+  if (isProduction) return true;
+  return false;
+}
+
 export default {
-  nodeEnv: process.env.NODE_ENV || 'development',
-  port: parseInt(process.env.PORT, 10) || 5000,
+  nodeEnv,
+  port,
   mongodbUri: process.env.MONGODB_URI || 'mongodb://localhost:27017/devils_lettuce',
   jwt: {
     secret: process.env.JWT_SECRET || 'dev-secret-change-me',
@@ -46,12 +66,12 @@ export default {
     apiSecret: process.env.CLOUDINARY_API_SECRET,
   },
   telegram: {
-    botToken: process.env.TELEGRAM_BOT_TOKEN,
+    botToken: resolveBotToken(),
     adminChatId: process.env.TELEGRAM_ADMIN_CHAT_ID,
-    enabled:
-      process.env.ENABLE_TELEGRAM_BOT === 'true' ||
-      (process.env.ENABLE_TELEGRAM_BOT !== 'false' && process.env.NODE_ENV === 'production'),
+    enabled: resolveTelegramEnabled(),
+    usingLocalToken: !isProduction && Boolean(process.env.TELEGRAM_BOT_TOKEN_LOCAL),
   },
+  botApiUrl: process.env.BOT_API_URL || `http://127.0.0.1:${port}/api`,
   corsOrigins: parseCorsOrigins(),
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
   backendUrl: process.env.BACKEND_URL,

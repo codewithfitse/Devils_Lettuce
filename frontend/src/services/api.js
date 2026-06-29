@@ -1,9 +1,15 @@
 import axios from 'axios';
 
+// Production: call Render directly (CORS is configured on the backend).
+// Local dev: use /api — Vite proxies to http://127.0.0.1:5000
+const PRODUCTION_API_URL = 'https://devils-lettuce.onrender.com/api';
+
 const api = axios.create({
-  baseURL: '/api',
+  baseURL:
+    import.meta.env.VITE_API_URL ||
+    (import.meta.env.PROD ? PRODUCTION_API_URL : '/api'),
   headers: { 'Content-Type': 'application/json' },
-  timeout: 30000,
+  timeout: 60000,
 });
 
 api.interceptors.request.use((config) => {
@@ -16,9 +22,10 @@ api.interceptors.response.use(
   (res) => res.data,
   (error) => {
     if (!error.response && error.message === 'Network Error') {
-      return Promise.reject(
-        new Error('Cannot reach API. Check Vercel RENDER_API_URL and Render is running.')
-      );
+      const hint = import.meta.env.DEV
+        ? 'Start the backend: npm run dev (from project root) or npm run dev:backend'
+        : 'Check that https://devils-lettuce.onrender.com is running';
+      return Promise.reject(new Error(`Cannot reach API. ${hint}.`));
     }
     const message = error.response?.data?.message || error.message || 'Request failed';
     return Promise.reject(new Error(message));

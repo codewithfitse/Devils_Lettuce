@@ -41,6 +41,12 @@ export function startBot() {
   bot = new Telegraf(env.telegram.botToken);
   setBotInstance(bot);
 
+  bot.catch((err, ctx) => {
+    console.error('[Telegram] Handler error:', err.message);
+    const lang = ctx.session?.lang || 'en';
+    ctx.reply(t(lang, 'error')).catch(() => {});
+  });
+
   bot.use(session({ defaultSession }));
 
   // /start
@@ -59,9 +65,14 @@ export function startBot() {
     ctx.session.lang = ctx.match[1];
     await ctx.answerCbQuery();
     await ctx.editMessageText(t(ctx.session.lang, 'languageSet'));
-    await handleAuth(ctx);
-    await ctx.reply(t(ctx.session.lang, 'welcome'), { parse_mode: 'HTML' });
-    await ctx.reply(t(ctx.session.lang, 'mainMenu'), mainMenuKeyboard(ctx.session.lang));
+    try {
+      await handleAuth(ctx);
+      await ctx.reply(t(ctx.session.lang, 'welcome'), { parse_mode: 'HTML' });
+      await ctx.reply(t(ctx.session.lang, 'mainMenu'), mainMenuKeyboard(ctx.session.lang));
+    } catch (error) {
+      console.error('[Telegram] Auth failed:', error.message);
+      await ctx.reply(`${t(ctx.session.lang, 'error')}\n${error.message}`);
+    }
   });
 
   // Browse products
@@ -340,18 +351,22 @@ export function startBot() {
   });
 
   bot.telegram.deleteWebhook({ drop_pending_updates: false }).finally(() => {
-    bot.launch().then(() => {
-      console.log('Telegram bot polling started');
-    }).catch((err) => {
-      if (err.response?.error_code === 409) {
-        console.warn(
-          '[Telegram] Another instance is already polling (409). ' +
-            'Stop Render bot or set ENABLE_TELEGRAM_BOT=false locally.'
-        );
-      } else {
-        console.error('[Telegram] Failed to start:', err.message);
-      }
-    });
+    bot
+      .launch()
+      .then(() => {
+        console.log('Telegram bot polling started');
+      })
+      .catch((err) => {
+        if (err.response?.error_code === 409) {
+          console.warn(
+            '[Telegram] 409 Conflict — another instance is already polling this bot token.\n' +
+              '  • Pause Render while testing locally, OR\n' +
+              '  • Create a test bot via @BotFather and set TELEGRAM_BOT_TOKEN_LOCAL in .env'
+          );
+        } else {
+          console.error('[Telegram] Failed to start:', err.message);
+        }
+      });
   });
 
   return bot;

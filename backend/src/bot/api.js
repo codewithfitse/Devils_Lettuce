@@ -1,60 +1,57 @@
+import jwt from 'jsonwebtoken';
 import env from '../config/env.js';
+import User from '../models/User.js';
+import { AppError } from '../middleware/errorHandler.js';
+import * as authService from '../services/authService.js';
+import * as productService from '../services/productService.js';
+import * as orderService from '../services/orderService.js';
+import * as deliveryService from '../services/deliveryService.js';
+import * as paymentService from '../services/paymentService.js';
 
-const API_BASE = `http://localhost:${env.port}/api`;
-
-export async function apiRequest(path, options = {}) {
-  const headers = {
-    'Content-Type': 'application/json',
-    ...options.headers,
-  };
-
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers,
-  });
-
-  const data = await res.json();
-  if (!res.ok) {
-    throw new Error(data.message || 'API request failed');
+async function getUserFromToken(token) {
+  let decoded;
+  try {
+    decoded = jwt.verify(token, env.jwt.secret);
+  } catch {
+    throw new AppError('Invalid or expired token', 401);
   }
-  return data.data;
+
+  const user = await User.findById(decoded.id);
+  if (!user?.isActive) {
+    throw new AppError('User not found or inactive', 401);
+  }
+  return user;
 }
 
 export async function authTelegram(telegramId, name, language) {
-  return apiRequest('/auth/telegram', {
-    method: 'POST',
-    body: JSON.stringify({ telegramId: String(telegramId), name, language }),
+  return authService.registerOrLoginTelegram({
+    telegramId: String(telegramId),
+    name,
+    language,
   });
 }
 
 export async function getProducts() {
-  return apiRequest('/products');
+  return productService.getProducts({ approvedOnly: true });
 }
 
 export async function createOrders(token, orderData) {
-  return apiRequest('/orders', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
-    body: JSON.stringify(orderData),
-  });
+  const user = await getUserFromToken(token);
+  return orderService.createOrders(orderData, user);
 }
 
 export async function getOrders(token) {
-  return apiRequest('/orders', {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  const user = await getUserFromToken(token);
+  return orderService.getOrders({}, user);
 }
 
 export async function getDeliveryZones() {
-  return apiRequest('/delivery/zones');
+  return deliveryService.getDeliveryZones();
 }
 
 export async function uploadPayment(token, orderIds, proofUrl, telebirrReference) {
-  return apiRequest('/payments', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ orderIds, proof: proofUrl, telebirrReference }),
-  });
+  const user = await getUserFromToken(token);
+  return paymentService.createPayment({ orderIds, telebirrReference }, user, proofUrl);
 }
 
 export async function getFileUrl(ctx, fileId) {
