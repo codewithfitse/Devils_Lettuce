@@ -1,4 +1,4 @@
-import { Telegraf, session } from 'telegraf';
+import { Telegraf, session, Markup } from 'telegraf';
 import env from '../config/env.js';
 import { setBotInstance } from '../utils/notifications.js';
 import { t } from './i18n.js';
@@ -12,6 +12,14 @@ import {
   cartKeyboard,
   zoneKeyboard,
 } from './keyboards.js';
+import {
+  findProduct,
+  productCaption,
+  deleteMessageSafe,
+  sendProductDetail,
+  updateMessage,
+  replaceWithProductDetail,
+} from './helpers.js';
 
 let bot = null;
 
@@ -72,29 +80,47 @@ export function startBot() {
       const products = await getProducts();
       if (!products.length) {
         const msg = t(lang, 'noProducts');
-        return edit ? ctx.editMessageText(msg) : ctx.reply(msg);
+        if (edit) {
+          const msg0 = ctx.callbackQuery?.message;
+          if (msg0?.photo?.length) {
+            await deleteMessageSafe(ctx);
+            return ctx.reply(msg);
+          }
+          return ctx.editMessageText(msg);
+        }
+        return ctx.reply(msg);
       }
+
       const text = t(lang, 'selectProduct');
       const kb = productListKeyboard(products);
-      return edit ? ctx.editMessageText(text, kb) : ctx.reply(text, kb);
+
+      if (edit) {
+        const msg0 = ctx.callbackQuery?.message;
+        if (msg0?.photo?.length) {
+          await deleteMessageSafe(ctx);
+          return ctx.reply(text, kb);
+        }
+        return ctx.editMessageText(text, kb);
+      }
+
+      return ctx.reply(text, kb);
     } catch {
       ctx.reply(t(lang, 'error'));
     }
   }
 
-  // Product selection
+  // Product selection — show photo + variant picker
   bot.action(/^product_(.+)$/, async (ctx) => {
     const productId = ctx.match[1];
     const lang = ctx.session.lang;
     await ctx.answerCbQuery();
     try {
       const products = await getProducts();
-      const product = products.find((p) => p._id === productId);
-      if (!product) return ctx.editMessageText(t(lang, 'error'));
-      await ctx.editMessageText(
-        `🍎 <b>${product.name}</b>\n${product.description || ''}\n\n${t(lang, 'selectVariant')}`,
-        { parse_mode: 'HTML', ...variantKeyboard(product, lang) }
-      );
+      const product = findProduct(products, productId);
+      if (!product) {
+        return updateMessage(ctx, t(lang, 'error'), Markup.inlineKeyboard([]));
+      }
+      await replaceWithProductDetail(ctx, product, lang, variantKeyboard(product, lang));
     } catch {
       ctx.reply(t(lang, 'error'));
     }
@@ -102,10 +128,17 @@ export function startBot() {
 
   // Variant selection → quantity
   bot.action(/^variant_(.+)_([a-f0-9]+)$/, async (ctx) => {
-    const [, productId, variantId] = ctx.match;
     const lang = ctx.session.lang;
     await ctx.answerCbQuery();
-    await ctx.editMessageText(t(lang, 'quantity'), quantityKeyboard(productId, variantId, lang));
+    const [, productId, variantId] = ctx.match;
+    const products = await getProducts();
+    const product = findProduct(products, productId);
+    const variant = product?.variants?.find((v) => String(v._id) === variantId);
+    const label = variant
+      ? `${variant.quality} — ${variant.price} ${t(lang, 'etb')}/${variant.unit}`
+      : '';
+    const text = `${t(lang, 'quantity')}${label ? `\n<b>${label}</b>` : ''}`;
+    await updateMessage(ctx, text, quantityKeyboard(productId, variantId, lang));
   });
 
   // Add to cart
@@ -127,7 +160,7 @@ export function startBot() {
       });
     }
 
-    await ctx.editMessageText(`✅ ${t(lang, 'addedToCart')}`);
+    await updateMessage(ctx, `✅ ${t(lang, 'addedToCart')}`, Markup.inlineKeyboard([]));
     await ctx.reply(t(lang, 'mainMenu'), mainMenuKeyboard(lang));
   });
 
@@ -150,8 +183,8 @@ export function startBot() {
       let total = 0;
 
       for (const item of cart) {
-        const product = products.find((p) => p._id === item.productId);
-        const variant = product?.variants?.find((v) => v._id === item.variantId);
+        const product = findProduct(products, item.productId);
+        const variant = product?.variants?.find((v) => String(v._id) === String(item.variantId));
         if (product && variant) {
           const lineTotal = variant.price * item.quantity;
           total += lineTotal;
@@ -306,13 +339,29 @@ export function startBot() {
     await ctx.reply(t(ctx.session.lang, 'mainMenu'), mainMenuKeyboard(ctx.session.lang));
   });
 
-  bot.launch();
-  console.log('Telegram bot started');
-
-  process.once('SIGINT', () => bot.stop('SIGINT'));
-  process.once('SIGTERM', () => bot.stop('SIGTERM'));
+  bot.telegram.deleteWebhook({ drop_pending_updates: false }).finally(() => {
+    bot.launch().then(() => {
+      console.log('Telegram bot polling started');
+    }).catch((err) => {
+      if (err.response?.error_code === 409) {
+        console.warn(
+          '[Telegram] Another instance is already polling (409). ' +
+            'Stop Render bot or set ENABLE_TELEGRAM_BOT=false locally.'
+        );
+      } else {
+        console.error('[Telegram] Failed to start:', err.message);
+      }
+    });
+  });
 
   return bot;
+}
+
+export async function stopBot() {
+  if (bot) {
+    await bot.stop('SIGTERM');
+    bot = null;
+  }
 }
 
 async function handleAuth(ctx) {

@@ -8,48 +8,39 @@ export default function Navbar() {
   const navigate = useNavigate();
 
   return (
-    <nav
-      style={{
-        background: 'var(--color-primary-dark)',
-        color: 'white',
-        padding: '0.875rem 0',
-        position: 'sticky',
-        top: 0,
-        zIndex: 100,
-      }}
-    >
-      <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Link to="/" style={{ color: 'white', fontWeight: 700, fontSize: '1.25rem' }}>
-          🥬 Devil's Lettuce
+    <nav className="navbar">
+      <div className="container navbar-inner">
+        <Link to="/" className="navbar-brand">
+          <img src="/logo.png" alt="Devil's Lettuce" className="navbar-logo" />
+          <span className="navbar-brand-text">
+            <span>Devil&apos;s Lettuce</span>
+            <small>Quality · Trust · Relief</small>
+          </span>
         </Link>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
-          <Link to="/products" style={{ color: 'rgba(255,255,255,0.9)' }}>Products</Link>
+        <div className="navbar-links">
+          <Link to="/products" className="nav-link">Products</Link>
 
           {user ? (
             <>
-              <Link to="/cart" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                Cart {count > 0 && `(${count})`}
+              <Link to="/cart" className="nav-link">
+                Cart{count > 0 && ` (${count})`}
               </Link>
-              <Link to="/orders" style={{ color: 'rgba(255,255,255,0.9)' }}>Orders</Link>
-              {isSuperAdmin && <Link to="/admin" style={{ color: 'var(--color-accent)' }}>Admin</Link>}
-              {isMerchant && <Link to="/merchant" style={{ color: 'var(--color-accent)' }}>Merchant</Link>}
-              {isDriver && <Link to="/driver" style={{ color: 'var(--color-accent)' }}>Driver</Link>}
-              <span style={{ fontSize: '0.85rem', opacity: 0.8 }}>{user.name}</span>
-              <button
-                className="btn btn-sm"
-                style={{ background: 'rgba(255,255,255,0.15)', color: 'white' }}
-                onClick={() => { logout(); navigate('/'); }}
-              >
+              <Link to="/orders" className="nav-link">Orders</Link>
+              {isSuperAdmin && <Link to="/admin" className="nav-link-accent">Admin</Link>}
+              {isMerchant && <Link to="/merchant" className="nav-link-accent">Merchant</Link>}
+              {isDriver && <Link to="/driver" className="nav-link-accent">Driver</Link>}
+              <Link to="/settings" className="btn-icon" title="Settings">⚙️</Link>
+              <span className="nav-user">{user.name}</span>
+              <button type="button" className="btn btn-sm btn-ghost" onClick={() => { logout(); navigate('/'); }}>
                 Logout
               </button>
             </>
           ) : (
             <>
-              <Link to="/login" style={{ color: 'rgba(255,255,255,0.9)' }}>Login</Link>
-              <Link to="/register" className="btn btn-sm" style={{ background: 'var(--color-accent)', color: '#212529' }}>
-                Register
-              </Link>
+              <Link to="/settings" className="btn-icon" title="Settings">⚙️</Link>
+              <Link to="/login" className="nav-link">Login</Link>
+              <Link to="/register" className="btn btn-sm btn-primary">Register</Link>
             </>
           )}
         </div>

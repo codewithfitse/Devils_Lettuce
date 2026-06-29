@@ -33,8 +33,32 @@ export const productApi = {
   getAll: (params) => api.get('/products', { params }),
   getMine: () => api.get('/products/mine'),
   getById: (id) => api.get(`/products/${id}`),
-  create: (data) => api.post('/products', data),
-  update: (id, data) => api.patch(`/products/${id}`, data),
+  create: (data, imageFile) => {
+    if (imageFile) {
+      const formData = new FormData();
+      formData.append('name', data.name);
+      formData.append('description', data.description || '');
+      formData.append('variants', JSON.stringify(data.variants));
+      formData.append('image', imageFile);
+      return api.post('/products', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+    }
+    return api.post('/products', data);
+  },
+  update: (id, data, imageFile) => {
+    if (imageFile) {
+      const formData = new FormData();
+      if (data.name) formData.append('name', data.name);
+      if (data.description !== undefined) formData.append('description', data.description);
+      if (data.variants) formData.append('variants', JSON.stringify(data.variants));
+      formData.append('image', imageFile);
+      return api.patch(`/products/${id}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+    }
+    return api.patch(`/products/${id}`, data);
+  },
   delete: (id) => api.delete(`/products/${id}`),
   approve: (id) => api.patch(`/products/${id}/approve`),
 };

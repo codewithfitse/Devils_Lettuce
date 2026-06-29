@@ -2,7 +2,8 @@ import app from './app.js';
 import env from './config/env.js';
 import { connectDB } from './config/db.js';
 import { expireStalePayments } from './services/paymentService.js';
-import { startBot } from './bot/index.js';
+import { startBot, stopBot } from './bot/index.js';
+import { startKeepAlive } from './keepAlive.js';
 
 async function bootstrap() {
   await connectDB();
@@ -11,9 +12,15 @@ async function bootstrap() {
     console.log(`Server running on port ${env.port} [${env.nodeEnv}]`);
   });
 
-  if (env.telegram.botToken) {
+  if (env.telegram.botToken && env.telegram.enabled) {
     startBot();
+  } else if (env.telegram.botToken) {
+    console.log(
+      'Telegram bot skipped (ENABLE_TELEGRAM_BOT=false or non-production). API still runs.'
+    );
   }
+
+  startKeepAlive();
 
   setInterval(async () => {
     try {
@@ -24,8 +31,9 @@ async function bootstrap() {
     }
   }, 60 * 60 * 1000);
 
-  const shutdown = () => {
+  const shutdown = async () => {
     console.log('Shutting down...');
+    await stopBot().catch(() => {});
     server.close(() => process.exit(0));
   };
 

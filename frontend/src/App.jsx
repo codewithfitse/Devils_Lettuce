@@ -11,6 +11,7 @@ import Cart from './pages/user/Cart';
 import Checkout from './pages/user/Checkout';
 import Orders from './pages/user/Orders';
 import PaymentUpload from './pages/user/PaymentUpload';
+import Settings from './pages/user/Settings';
 
 // Auth
 import Login from './pages/auth/Login';
@@ -60,6 +61,7 @@ export default function App() {
       <Route path="/products/:id" element={<Layout><ProductDetail /></Layout>} />
       <Route path="/login" element={<Layout><Login /></Layout>} />
       <Route path="/register" element={<Layout><Register /></Layout>} />
+      <Route path="/settings" element={<Layout><Settings /></Layout>} />
 
       {/* User routes */}
       <Route path="/cart" element={<ProtectedRoute><Layout><Cart /></Layout></ProtectedRoute>} />

@@ -27,7 +27,7 @@ export default function Login() {
   };
 
   return (
-    <div className="container" style={{ maxWidth: 420, padding: '3rem 0' }}>
+    <div className="container auth-page">
       <h1 className="page-title">Login</h1>
       {error && <div className="alert alert-error">{error}</div>}
       <form onSubmit={handleSubmit} className="card">

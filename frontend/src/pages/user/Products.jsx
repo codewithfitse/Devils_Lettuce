@@ -16,14 +16,14 @@ export default function Products() {
   }, [search]);
 
   return (
-    <div className="container" style={{ padding: '2rem 0' }}>
+    <div className="container page-section">
       <h1 className="page-title">All Products</h1>
       <input
         type="search"
+        className="search-input"
         placeholder="Search fruits..."
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        style={{ maxWidth: 400, marginBottom: '1.5rem', padding: '0.625rem 1rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', width: '100%' }}
       />
       {loading ? (
         <p>Loading...</p>

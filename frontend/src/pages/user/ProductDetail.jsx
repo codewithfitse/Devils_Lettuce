@@ -27,20 +27,19 @@ export default function ProductDetail() {
   };
 
   return (
-    <div className="container" style={{ padding: '2rem 0' }}>
-      <div className="card" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+    <div className="container page-section">
+      <div className="card" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '2rem' }}>
         <div
+          className="card-product-image"
           style={{
             height: 320,
-            borderRadius: 'var(--radius)',
-            background: product.image
-              ? `url(${product.image}) center/cover`
-              : 'linear-gradient(135deg, #2d6a4f, #52b788)',
+            borderRadius: 'var(--radius-lg)',
+            ...(product.image ? { backgroundImage: `url(${product.image})` } : {}),
           }}
         />
         <div>
-          <h1 style={{ marginBottom: '0.5rem' }}>{product.name}</h1>
-          <p style={{ color: 'var(--color-muted)', marginBottom: '1.5rem' }}>{product.description}</p>
+          <h1 className="section-title" style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>{product.name}</h1>
+          <p className="text-muted" style={{ marginBottom: '1.5rem' }}>{product.description}</p>
 
           <div className="form-group">
             <label>Quality</label>
@@ -70,7 +69,7 @@ export default function ProductDetail() {
             />
           </div>
 
-          <p style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1rem' }}>
+          <p className="price" style={{ fontSize: '1.25rem', marginBottom: '1rem' }}>
             Total: {(selectedVariant?.price || 0) * quantity} ETB
           </p>
 

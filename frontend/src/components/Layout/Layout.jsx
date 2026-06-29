@@ -7,7 +7,7 @@ export default function Layout({ children, sidebar }) {
       {sidebar ? (
         <div style={{ display: 'flex' }}>
           {sidebar}
-          <main style={{ flex: 1, padding: '2rem' }}>{children}</main>
+          <main className="panel-main">{children}</main>
         </div>
       ) : (
         <main>{children}</main>

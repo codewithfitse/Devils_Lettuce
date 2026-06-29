@@ -1,6 +1,19 @@
 import * as productService from '../services/productService.js';
 import { uploadImage as uploadToCloudinary } from '../services/cloudinaryService.js';
 
+function parseProductBody(body) {
+  const data = { ...body };
+  if (typeof data.variants === 'string') {
+    try {
+      data.variants = JSON.parse(data.variants);
+    } catch {
+      data.variants = [];
+    }
+  }
+  if (data.price !== undefined) data.price = Number(data.price);
+  return data;
+}
+
 export async function getProducts(req, res) {
   const products = await productService.getProducts({
     ...req.query,
@@ -15,22 +28,24 @@ export async function getProduct(req, res) {
 }
 
 export async function createProduct(req, res) {
-  let image = req.body.image;
+  const body = parseProductBody(req.body);
+  let image = body.image;
   if (req.file) {
     image = await uploadToCloudinary(req.file);
   }
-  const product = await productService.createProduct({ ...req.body, image }, req.user);
+  const product = await productService.createProduct({ ...body, image }, req.user);
   res.status(201).json({ success: true, data: product });
 }
 
 export async function updateProduct(req, res) {
-  let image = req.body.image;
+  const body = parseProductBody(req.body);
+  let image = body.image;
   if (req.file) {
     image = await uploadToCloudinary(req.file);
   }
   const product = await productService.updateProduct(
     req.params.id,
-    { ...req.body, ...(image && { image }) },
+    { ...body, ...(image && { image }) },
     req.user
   );
   res.json({ success: true, data: product });
