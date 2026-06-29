@@ -1,10 +1,31 @@
 import Product from '../models/Product.js';
 import { AppError } from '../middleware/errorHandler.js';
+import { validateZoneKeys } from '../utils/deliveryPricing.js';
+
+function normalizeDeliveryZones(data) {
+  if (data.deliveryZones === undefined) return data;
+  if (typeof data.deliveryZones === 'string') {
+    try {
+      data.deliveryZones = JSON.parse(data.deliveryZones);
+    } catch {
+      data.deliveryZones = [];
+    }
+  }
+  const err = validateZoneKeys(data.deliveryZones);
+  if (err) throw new AppError(err, 400);
+  return data;
+}
 
 export async function getProducts(filters = {}) {
-  const query = { isActive: true };
+  const query = {};
 
-  if (filters.approvedOnly !== false) query.isApproved = true;
+  if (filters.includeInactive !== true && filters.includeInactive !== 'true') {
+    query.isActive = true;
+  }
+
+  if (filters.approvedOnly !== false && filters.approvedOnly !== 'false') {
+    query.isApproved = true;
+  }
   if (filters.featured) query.isFeatured = true;
   if (filters.ownerId) query.ownerId = filters.ownerId;
   if (filters.search) {
@@ -14,6 +35,12 @@ export async function getProducts(filters = {}) {
   return Product.find(query)
     .populate('ownerId', 'name phone')
     .sort({ isFeatured: -1, createdAt: -1 });
+}
+
+export async function getOwnerProducts(ownerId) {
+  return Product.find({ ownerId })
+    .populate('ownerId', 'name phone')
+    .sort({ createdAt: -1 });
 }
 
 export async function getProductById(id) {
@@ -26,6 +53,8 @@ export async function createProduct(data, owner) {
   if (!owner.canManageProducts()) {
     throw new AppError('You do not have permission to sell products', 403);
   }
+
+  normalizeDeliveryZones(data);
 
   const product = await Product.create({
     ...data,
@@ -44,11 +73,13 @@ export async function updateProduct(id, data, requester) {
     throw new AppError('You can only modify your own products', 403);
   }
 
-  const allowed = ['name', 'description', 'image', 'variants', 'isActive'];
+  const allowed = ['name', 'description', 'image', 'variants', 'isActive', 'deliveryZones'];
   const adminFields = ['isApproved', 'isFeatured'];
 
   for (const key of allowed) {
-    if (data[key] !== undefined) product[key] = data[key];
+    if (data[key] !== undefined && key !== 'deliveryZones') {
+      product[key] = data[key];
+    }
   }
 
   if (requester.isSuperAdmin()) {
@@ -57,8 +88,14 @@ export async function updateProduct(id, data, requester) {
     }
   }
 
-  if (!requester.isSuperAdmin() && data.isApproved !== undefined) {
-    product.isApproved = false;
+  if (data.deliveryZones !== undefined) {
+    normalizeDeliveryZones(data);
+    product.deliveryZones = data.deliveryZones;
+  }
+
+  if (!requester.isSuperAdmin()) {
+    const edited = ['name', 'description', 'image', 'variants'].some((k) => data[k] !== undefined);
+    if (edited) product.isApproved = false;
   }
 
   await product.save();

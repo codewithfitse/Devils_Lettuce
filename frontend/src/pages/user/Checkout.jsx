@@ -20,12 +20,23 @@ export default function Checkout() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    deliveryApi.getZones().then((res) => setZones(res.data));
-  }, []);
+    const productIds = items.map((i) => i.productId);
+    deliveryApi.getZones(productIds).then((res) => {
+      setZones(res.data);
+      setForm((prev) => {
+        if (prev.zone && !res.data.some((z) => z.key === prev.zone)) {
+          return { ...prev, zone: '' };
+        }
+        return prev;
+      });
+    });
+  }, [items]);
 
   useEffect(() => {
     if (form.zone) {
       deliveryApi.estimate(form.zone).then((res) => setDeliveryFee(res.data.fee));
+    } else {
+      setDeliveryFee(0);
     }
   }, [form.zone]);
 
@@ -77,12 +88,20 @@ export default function Checkout() {
         </div>
         <div className="form-group">
           <label>Delivery Zone</label>
-          <select required value={form.zone} onChange={(e) => setForm({ ...form, zone: e.target.value })}>
-            <option value="">Select zone...</option>
-            {zones.map((z) => (
-              <option key={z.key} value={z.key}>{z.name} (+{z.fee} ETB)</option>
-            ))}
-          </select>
+          {!zones.length ? (
+            <p className="alert alert-error" style={{ margin: 0 }}>
+              No delivery area in common for your cart items. Remove a product or try again later.
+            </p>
+          ) : (
+            <select required value={form.zone} onChange={(e) => setForm({ ...form, zone: e.target.value })}>
+              <option value="">Select zone...</option>
+              {zones.map((z) => (
+                <option key={z.key} value={z.key}>
+                  {z.name} ({z.fee === 0 ? 'Free' : `+${z.fee} ETB`})
+                </option>
+              ))}
+            </select>
+          )}
         </div>
         <div className="form-group">
           <label>Notes (optional)</label>
@@ -98,7 +117,7 @@ export default function Checkout() {
           </p>
         </div>
 
-        <button type="submit" className="btn btn-primary" disabled={loading}>
+        <button type="submit" className="btn btn-primary" disabled={loading || !zones.length || !form.zone}>
           {loading ? 'Placing Order...' : 'Place Order'}
         </button>
       </form>

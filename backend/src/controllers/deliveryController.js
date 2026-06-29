@@ -11,6 +11,16 @@ export async function completeDelivery(req, res) {
 }
 
 export async function getDeliveryZones(req, res) {
+  const raw = req.query.productIds;
+  if (raw) {
+    const productIds = String(raw)
+      .split(',')
+      .map((id) => id.trim())
+      .filter(Boolean);
+    const zones = await deliveryService.getZonesForProducts(productIds);
+    return res.json({ success: true, data: zones });
+  }
+
   const zones = deliveryService.getDeliveryZones();
   res.json({ success: true, data: zones });
 }
@@ -22,6 +32,11 @@ export async function estimateFee(req, res) {
 
 export async function getMyDeliveries(req, res) {
   const deliveries = await deliveryService.getMyDeliveries(req.user);
+  res.json({ success: true, data: deliveries });
+}
+
+export async function getCompletedDeliveries(req, res) {
+  const deliveries = await deliveryService.getMyCompletedDeliveries(req.user);
   res.json({ success: true, data: deliveries });
 }
 

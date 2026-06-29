@@ -1,13 +1,24 @@
 import Product from '../models/Product.js';
 import { AppError } from '../middleware/errorHandler.js';
-import { getDeliveryFee } from './deliveryPricing.js';
+import { getDeliveryFee, getAllZoneKeys, getZoneName, validateZoneKeys } from './deliveryPricing.js';
+
+function assertProductAllowsZone(product, zone) {
+  if (!zone) return;
+  const allowed = product.deliveryZones?.length ? product.deliveryZones : getAllZoneKeys();
+  if (!allowed.includes(zone)) {
+    throw new AppError(
+      `"${product.name}" is not delivered to ${getZoneName(zone)}. Remove it from your cart or pick another area.`,
+      400
+    );
+  }
+}
 
 /**
  * Splits cart items by merchant and validates stock/pricing.
  * @param {Array} cartItems - [{ productId, variantId, quantity }]
- * @returns {Array} merchant groups with resolved items
+ * @param {string} [zone] - delivery zone key
  */
-export async function splitCartByMerchant(cartItems) {
+export async function splitCartByMerchant(cartItems, zone) {
   const merchantMap = new Map();
 
   for (const item of cartItems) {
@@ -15,6 +26,8 @@ export async function splitCartByMerchant(cartItems) {
     if (!product || !product.isActive || !product.isApproved) {
       throw new AppError(`Product ${item.productId} is not available`, 400);
     }
+
+    assertProductAllowsZone(product, zone);
 
     const variant = product.variants.id(item.variantId);
     if (!variant) {

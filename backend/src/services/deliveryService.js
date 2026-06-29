@@ -1,7 +1,8 @@
 import Order, { ORDER_STATUS } from '../models/Order.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { notifications } from '../utils/notifications.js';
-import { getAvailableZones, getDeliveryFee } from '../utils/deliveryPricing.js';
+import { getAvailableZones, getDeliveryFee, intersectProductZones } from '../utils/deliveryPricing.js';
+import Product from '../models/Product.js';
 
 function isAssignedDeliverer(order, requester) {
   const driverId = order.assignedDriverId?._id?.toString() || order.assignedDriverId?.toString();
@@ -66,8 +67,35 @@ export async function completeDelivery(orderId, requester) {
   return order;
 }
 
+export async function getMyCompletedDeliveries(requester) {
+  if (!requester.canDeliverOrders() && !requester.isSuperAdmin()) {
+    throw new AppError('No delivery permissions', 403);
+  }
+
+  return Order.find({
+    assignedDriverId: requester._id,
+    status: ORDER_STATUS.COMPLETED,
+  })
+    .populate('userId', 'name phone')
+    .populate('merchantId', 'name phone')
+    .sort({ updatedAt: -1 });
+}
+
 export function getDeliveryZones() {
   return getAvailableZones();
+}
+
+export async function getZonesForProducts(productIds) {
+  if (!productIds?.length) return getAvailableZones();
+
+  const ids = [...new Set(productIds.map(String))];
+  const products = await Product.find({
+    _id: { $in: ids },
+    isActive: true,
+    isApproved: true,
+  });
+
+  return intersectProductZones(products);
 }
 
 export function estimateDeliveryFee(zone) {

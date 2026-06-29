@@ -44,6 +44,14 @@ export async function updateUser(id, data, requester) {
     throw new AppError('Cannot change role', 403);
   }
 
+  if (data.isActive === false && user.role === ROLES.SUPER_ADMIN) {
+    throw new AppError('Cannot ban super admin', 400);
+  }
+
+  if (data.isActive === false && isSelf) {
+    throw new AppError('You cannot ban yourself', 400);
+  }
+
   if (requester.isSubAdmin() && !isSelf) {
     throw new AppError('Sub admin cannot modify other users', 403);
   }

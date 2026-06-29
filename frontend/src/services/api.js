@@ -52,6 +52,9 @@ export const productApi = {
       formData.append('name', data.name);
       formData.append('description', data.description || '');
       formData.append('variants', JSON.stringify(data.variants));
+      if (data.deliveryZones?.length) {
+        formData.append('deliveryZones', JSON.stringify(data.deliveryZones));
+      }
       formData.append('image', imageFile);
       return api.post('/products', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -65,6 +68,7 @@ export const productApi = {
       if (data.name) formData.append('name', data.name);
       if (data.description !== undefined) formData.append('description', data.description);
       if (data.variants) formData.append('variants', JSON.stringify(data.variants));
+      if (data.deliveryZones) formData.append('deliveryZones', JSON.stringify(data.deliveryZones));
       formData.append('image', imageFile);
       return api.patch(`/products/${id}`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -104,10 +108,14 @@ export const paymentApi = {
 
 // Delivery
 export const deliveryApi = {
-  getZones: () => api.get('/delivery/zones'),
+  getZones: (productIds) => {
+    const params = productIds?.length ? { productIds: productIds.join(',') } : undefined;
+    return api.get('/delivery/zones', { params });
+  },
   estimate: (zone) => api.get('/delivery/estimate', { params: { zone } }),
   getAvailable: () => api.get('/delivery/available'),
   getMine: () => api.get('/delivery/mine'),
+  getCompleted: () => api.get('/delivery/completed'),
   start: (orderId) => api.patch(`/delivery/${orderId}/start`),
   complete: (orderId) => api.patch(`/delivery/${orderId}/complete`),
 };

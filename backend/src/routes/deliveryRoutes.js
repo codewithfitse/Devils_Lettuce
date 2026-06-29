@@ -13,6 +13,7 @@ router.use(authenticate);
 
 router.get('/available', requireDeliveryAccess(), asyncHandler(deliveryController.getAvailableOrders));
 router.get('/mine', requireDeliveryAccess(), asyncHandler(deliveryController.getMyDeliveries));
+router.get('/completed', requireDeliveryAccess(), asyncHandler(deliveryController.getCompletedDeliveries));
 router.patch('/:orderId/start', requireDeliveryAccess(), asyncHandler(deliveryController.startDelivery));
 router.patch('/:orderId/complete', requireDeliveryAccess(), asyncHandler(deliveryController.completeDelivery));
 

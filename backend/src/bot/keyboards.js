@@ -1,5 +1,6 @@
 import { Markup } from 'telegraf';
 import { t } from './i18n.js';
+import { formatZoneFee } from '../utils/deliveryPricing.js';
 
 export function languageKeyboard() {
   return Markup.inlineKeyboard([
@@ -51,7 +52,7 @@ export function variantKeyboard(product, lang) {
 
 export function zoneKeyboard(zones, lang) {
   const buttons = zones.map((z) => [
-    Markup.button.callback(`${z.name} (+${z.fee} ETB)`, `zone_${z.key}`),
+    Markup.button.callback(`${z.name} (${formatZoneFee(z.fee)})`, `zone_${z.key}`),
   ]);
   buttons.push([Markup.button.callback(t(lang, 'cancel'), 'back_main')]);
   return Markup.inlineKeyboard(buttons);

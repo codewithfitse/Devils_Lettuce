@@ -242,7 +242,12 @@ export function startBot() {
       ctx.session.checkout.address = text;
       ctx.session.checkout.step = 'zone';
       try {
-        const zones = await getDeliveryZones();
+        const productIds = [...new Set(ctx.session.cart.map((i) => i.productId))];
+        const zones = await getDeliveryZones(productIds);
+        if (!zones.length) {
+          ctx.session.checkout = null;
+          return ctx.reply(t(lang, 'noDeliveryZones'));
+        }
         return ctx.reply(t(lang, 'selectZone'), zoneKeyboard(zones, lang));
       } catch {
         return ctx.reply(t(lang, 'error'));

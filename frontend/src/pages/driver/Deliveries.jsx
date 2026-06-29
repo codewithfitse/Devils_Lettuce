@@ -32,10 +32,13 @@ function OrderCard({ order, actions }) {
 export default function DriverDeliveries() {
   const [available, setAvailable] = useState([]);
   const [mine, setMine] = useState([]);
+  const [completed, setCompleted] = useState([]);
+  const [tab, setTab] = useState('active');
 
   const load = () => {
     deliveryApi.getAvailable().then((res) => setAvailable(res.data));
     deliveryApi.getMine().then((res) => setMine(res.data));
+    deliveryApi.getCompleted().then((res) => setCompleted(res.data));
   };
 
   useEffect(() => { load(); }, []);
@@ -59,49 +62,77 @@ export default function DriverDeliveries() {
     <div>
       <h1 className="page-title">Deliveries</h1>
 
-      <h2 style={{ fontSize: '1.15rem', marginBottom: '1rem' }}>Available Orders</h2>
-      <p style={{ color: 'var(--color-muted)', marginBottom: '1rem', fontSize: '0.9rem' }}>
-        Pick an order you want to deliver. First come, first served.
-      </p>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '2rem' }}>
-        {available.map((order) => (
-          <OrderCard
-            key={order._id}
-            order={order}
-            actions={
-              <button className="btn btn-sm btn-primary" onClick={() => claim(order._id)}>
-                Take This Order
-              </button>
-            }
-          />
-        ))}
-        {!available.length && <p className="empty-state">No orders available right now.</p>}
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+        <button
+          type="button"
+          className={`btn btn-sm ${tab === 'active' ? 'btn-primary' : 'btn-outline'}`}
+          onClick={() => setTab('active')}
+        >
+          Active ({available.length + mine.length})
+        </button>
+        <button
+          type="button"
+          className={`btn btn-sm ${tab === 'completed' ? 'btn-primary' : 'btn-outline'}`}
+          onClick={() => setTab('completed')}
+        >
+          Completed ({completed.length})
+        </button>
       </div>
 
-      <h2 style={{ fontSize: '1.15rem', marginBottom: '1rem' }}>My Active Deliveries</h2>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        {mine.map((order) => (
-          <OrderCard
-            key={order._id}
-            order={order}
-            actions={
-              <>
-                {order.status === 'available_for_delivery' && (
-                  <button className="btn btn-sm btn-primary" onClick={() => start(order._id)}>
-                    Start Delivery
+      {tab === 'active' ? (
+        <>
+          <h2 style={{ fontSize: '1.15rem', marginBottom: '1rem' }}>Available Orders</h2>
+          <p style={{ color: 'var(--color-muted)', marginBottom: '1rem', fontSize: '0.9rem' }}>
+            Pick an order you want to deliver. First come, first served.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '2rem' }}>
+            {available.map((order) => (
+              <OrderCard
+                key={order._id}
+                order={order}
+                actions={
+                  <button className="btn btn-sm btn-primary" onClick={() => claim(order._id)}>
+                    Take This Order
                   </button>
-                )}
-                {order.status === 'delivering' && (
-                  <button className="btn btn-sm btn-primary" onClick={() => complete(order._id)}>
-                    Mark Delivered
-                  </button>
-                )}
-              </>
-            }
-          />
-        ))}
-        {!mine.length && <p className="empty-state">You have no active deliveries.</p>}
-      </div>
+                }
+              />
+            ))}
+            {!available.length && <p className="empty-state">No orders available right now.</p>}
+          </div>
+
+          <h2 style={{ fontSize: '1.15rem', marginBottom: '1rem' }}>My Active Deliveries</h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {mine.map((order) => (
+              <OrderCard
+                key={order._id}
+                order={order}
+                actions={
+                  <>
+                    {order.status === 'available_for_delivery' && (
+                      <button className="btn btn-sm btn-primary" onClick={() => start(order._id)}>
+                        Start Delivery
+                      </button>
+                    )}
+                    {order.status === 'delivering' && (
+                      <button className="btn btn-sm btn-primary" onClick={() => complete(order._id)}>
+                        Mark Delivered
+                      </button>
+                    )}
+                  </>
+                }
+              />
+            ))}
+            {!mine.length && <p className="empty-state">You have no active deliveries.</p>}
+          </div>
+        </>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {completed.map((order) => (
+            <OrderCard key={order._id} order={order} />
+          ))}
+          {!completed.length && <p className="empty-state">No completed deliveries yet.</p>}
+        </div>
+      )}
     </div>
   );
 }

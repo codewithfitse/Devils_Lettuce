@@ -10,6 +10,13 @@ function parseProductBody(body) {
       data.variants = [];
     }
   }
+  if (typeof data.deliveryZones === 'string') {
+    try {
+      data.deliveryZones = JSON.parse(data.deliveryZones);
+    } catch {
+      data.deliveryZones = [];
+    }
+  }
   if (data.price !== undefined) data.price = Number(data.price);
   return data;
 }
@@ -18,6 +25,7 @@ export async function getProducts(req, res) {
   const products = await productService.getProducts({
     ...req.query,
     approvedOnly: req.query.approvedOnly !== 'false',
+    includeInactive: req.query.includeInactive === 'true',
   });
   res.json({ success: true, data: products });
 }
@@ -62,9 +70,6 @@ export async function approveProduct(req, res) {
 }
 
 export async function getMyProducts(req, res) {
-  const products = await productService.getProducts({
-    ownerId: req.user._id,
-    approvedOnly: false,
-  });
+  const products = await productService.getOwnerProducts(req.user._id);
   res.json({ success: true, data: products });
 }

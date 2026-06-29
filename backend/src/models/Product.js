@@ -20,6 +20,8 @@ const productSchema = new mongoose.Schema(
     isFeatured: { type: Boolean, default: false },
     variants: { type: [variantSchema], default: [] },
     isActive: { type: Boolean, default: true },
+    /** Zone keys from deliveryPricing.ZONES — merchant picks where this product can be delivered */
+    deliveryZones: { type: [String], default: [] },
   },
   { timestamps: true }
 );

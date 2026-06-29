@@ -45,7 +45,10 @@ export async function getOrders(token) {
   return orderService.getOrders({}, user);
 }
 
-export async function getDeliveryZones() {
+export async function getDeliveryZones(productIds) {
+  if (productIds?.length) {
+    return deliveryService.getZonesForProducts(productIds);
+  }
   return deliveryService.getDeliveryZones();
 }
 

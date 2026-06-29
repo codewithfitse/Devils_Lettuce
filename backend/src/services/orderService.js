@@ -7,7 +7,7 @@ import { updateStock } from './productService.js';
 import { notifications } from '../utils/notifications.js';
 
 export async function createOrders({ cartItems, location, phone, notes }, user) {
-  const merchantGroups = await splitCartByMerchant(cartItems);
+  const merchantGroups = await splitCartByMerchant(cartItems, location?.zone);
   const groupsWithFees = applyDeliveryFee(merchantGroups, location?.zone);
 
   const orders = [];
