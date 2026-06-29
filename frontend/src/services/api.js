@@ -1,8 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  // Production: use /api (Vercel proxies to Render) OR set VITE_API_URL for direct calls
-  baseURL: import.meta.env.VITE_API_URL || '/api',
+  baseURL: '/api',
   headers: { 'Content-Type': 'application/json' },
   timeout: 30000,
 });
