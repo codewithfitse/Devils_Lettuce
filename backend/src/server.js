@@ -1,0 +1,39 @@
+import app from './app.js';
+import env from './config/env.js';
+import { connectDB } from './config/db.js';
+import { expireStalePayments } from './services/paymentService.js';
+import { startBot } from './bot/index.js';
+
+async function bootstrap() {
+  await connectDB();
+
+  const server = app.listen(env.port, () => {
+    console.log(`Server running on port ${env.port} [${env.nodeEnv}]`);
+  });
+
+  if (env.telegram.botToken) {
+    startBot();
+  }
+
+  setInterval(async () => {
+    try {
+      const count = await expireStalePayments();
+      if (count > 0) console.log(`Expired ${count} stale payment(s)`);
+    } catch (error) {
+      console.error('Payment expiry job failed:', error.message);
+    }
+  }, 60 * 60 * 1000);
+
+  const shutdown = () => {
+    console.log('Shutting down...');
+    server.close(() => process.exit(0));
+  };
+
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
+}
+
+bootstrap().catch((error) => {
+  console.error('Failed to start server:', error);
+  process.exit(1);
+});
