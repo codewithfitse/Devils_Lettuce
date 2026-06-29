@@ -168,7 +168,14 @@ export async function assignDriver(orderId, driverId, requester) {
   order.assignedDriverId = driverId;
   order.claimedAt = new Date();
   await order.save();
-  return order.populate('assignedDriverId', 'name phone');
+
+  const populated = await order.populate([
+    { path: 'userId', select: 'name phone telegramId' },
+    { path: 'merchantId', select: 'name phone' },
+  ]);
+
+  await notifications.driverAssigned(driver, populated);
+  return populated.populate('assignedDriverId', 'name phone');
 }
 
 export async function makeAvailableForDelivery(orderId, requester) {
@@ -242,7 +249,15 @@ export async function deliverSelf(orderId, requester) {
   order.assignedDriverId = requester._id;
   order.claimedAt = new Date();
   await order.save();
-  return order.populate('assignedDriverId', 'name phone');
+
+  const populated = await order.populate([
+    { path: 'userId', select: 'name phone telegramId' },
+    { path: 'merchantId', select: 'name phone' },
+    { path: 'assignedDriverId', select: 'name phone telegramId' },
+  ]);
+
+  await notifications.driverAssigned(requester, populated);
+  return populated;
 }
 
 export async function deductStockForOrder(order) {

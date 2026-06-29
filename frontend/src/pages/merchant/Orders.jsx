@@ -26,6 +26,14 @@ function MerchantOrderCard({ order, user, run }) {
       </ul>
       <p style={{ fontWeight: 600 }}>{order.totalPrice + (order.deliveryFee || 0)} ETB</p>
       <p style={{ fontSize: '0.85rem', color: 'var(--color-muted)' }}>{order.location?.address}</p>
+      {(order.phone || order.userId?.phone) && (
+        <p style={{ fontSize: '0.9rem', marginTop: '0.35rem' }}>
+          <strong>Customer phone:</strong>{' '}
+          <a href={`tel:${order.phone || order.userId.phone}`} style={{ color: 'var(--color-primary)' }}>
+            {order.phone || order.userId.phone}
+          </a>
+        </p>
+      )}
 
       {order.status === 'payment_pending' && (
         <p style={{ fontSize: '0.85rem', color: 'var(--color-muted)', marginTop: '0.5rem' }}>

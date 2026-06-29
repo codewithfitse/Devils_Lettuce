@@ -1,4 +1,5 @@
 import env from '../config/env.js';
+import { getZoneName } from './deliveryPricing.js';
 
 let botInstance = null;
 
@@ -15,6 +16,45 @@ async function sendTelegramMessage(chatId, message) {
   }
 }
 
+function formatDriverOrderMessage(order) {
+  const orderId = order._id.toString().slice(-6);
+  const customerPhone = order.phone || order.userId?.phone || 'N/A';
+  const customerName = order.userId?.name || 'Customer';
+  const merchantName = order.merchantId?.name || 'Merchant';
+  const merchantPhone = order.merchantId?.phone;
+  const zoneKey = order.location?.zone;
+  const zoneLabel = zoneKey ? getZoneName(zoneKey) : 'N/A';
+  const address = order.location?.address || 'N/A';
+  const items = order.items
+    .map((i) => `• ${i.productName} (${i.quality}) x${i.quantity}`)
+    .join('\n');
+  const total = order.totalPrice + (order.deliveryFee || 0);
+
+  let text =
+    `📦 <b>Delivery Assigned — Order #${orderId}</b>\n\n` +
+    `<b>Customer:</b> ${customerName}\n` +
+    `<b>Phone:</b> ${customerPhone}\n` +
+    `<b>Address:</b> ${address}\n` +
+    `<b>Zone:</b> ${zoneLabel}\n` +
+    `<b>Merchant:</b> ${merchantName}`;
+
+  if (merchantPhone) {
+    text += `\n<b>Merchant phone:</b> ${merchantPhone}`;
+  }
+
+  text +=
+    `\n\n<b>Items:</b>\n${items}\n\n` +
+    `<b>Order total:</b> ${order.totalPrice} ETB\n` +
+    `<b>Delivery fee:</b> ${order.deliveryFee || 0} ETB\n` +
+    `<b>Grand total:</b> ${total} ETB`;
+
+  if (order.notes) {
+    text += `\n<b>Notes:</b> ${order.notes}`;
+  }
+
+  return text;
+}
+
 export const notifications = {
   async newOrder(merchant, order) {
     if (!merchant.telegramId) return;
@@ -29,12 +69,20 @@ export const notifications = {
 
   async orderAccepted(user, order) {
     if (!user.telegramId) return;
+    const deliveryFee = order.deliveryFee || 0;
+    const total = order.totalPrice + deliveryFee;
+    const totalLine =
+      deliveryFee > 0
+        ? `<b>Total to pay: ${total} ETB</b> (${order.totalPrice} + ${deliveryFee} delivery)`
+        : `<b>Total to pay: ${total} ETB</b>`;
+
     await sendTelegramMessage(
       user.telegramId,
       `✅ <b>Order Accepted!</b>\n` +
         `Order #${order._id.toString().slice(-6)} has been accepted.\n` +
         `Please upload your Telebirr payment proof.\n\n` +
-        `<b>Telebirr Account: ${env.telebirrAccount}</b>`
+        `<b>Telebirr Account: ${env.telebirrAccount}</b>\n` +
+        totalLine
     );
   },
 
@@ -121,12 +169,19 @@ export const notifications = {
   },
 
   async orderClaimed(user, order, driver) {
-    if (!user.telegramId) return;
-    await sendTelegramMessage(
-      user.telegramId,
-      `🚗 <b>Driver Assigned!</b>\n` +
-        `Order #${order._id.toString().slice(-6)} was claimed by ${driver.name}.\n` +
-        `Your delivery will start soon.`
-    );
+    if (user?.telegramId) {
+      await sendTelegramMessage(
+        user.telegramId,
+        `🚗 <b>Driver Assigned!</b>\n` +
+          `Order #${order._id.toString().slice(-6)} was claimed by ${driver.name}.\n` +
+          `Your delivery will start soon.`
+      );
+    }
+    await this.driverAssigned(driver, order);
+  },
+
+  async driverAssigned(driver, order) {
+    if (!driver?.telegramId) return;
+    await sendTelegramMessage(driver.telegramId, formatDriverOrderMessage(order));
   },
 };

@@ -2,29 +2,88 @@ import { useEffect, useState } from 'react';
 import { deliveryApi, orderApi } from '../../services/api';
 import OrderStatusBadge from '../../components/OrderStatusBadge';
 
-function OrderCard({ order, actions }) {
+const ZONE_LABELS = {
+  jemo: 'Jemo',
+  lebu_muzika: 'Lebu Muzika',
+  lebu_varnero: 'Lebu Varnero',
+  meberat: 'Meberat',
+  garment: 'Garment',
+  jemo_michael: 'Jemo Michael',
+  german: 'German',
+  lafto_belay: 'Lafto Belay',
+};
+
+function zoneName(key) {
+  return ZONE_LABELS[key] || key || 'N/A';
+}
+
+function customerPhone(order) {
+  return order.phone || order.userId?.phone;
+}
+
+function OrderCard({ order, actions, showFullDetails = false }) {
+  const phone = customerPhone(order);
+
   return (
     <div className="card">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <strong>#{order._id.slice(-6)}</strong>
         <OrderStatusBadge status={order.status} />
       </div>
-      <p style={{ fontSize: '0.9rem' }}>
-        Customer: {order.userId?.name} · {order.userId?.phone}
+
+      <p style={{ fontSize: '0.9rem', marginTop: '0.5rem' }}>
+        <strong>Customer:</strong> {order.userId?.name || 'N/A'}
       </p>
+
+      {showFullDetails && phone && (
+        <p style={{ fontSize: '0.9rem' }}>
+          <strong>Phone:</strong>{' '}
+          <a href={`tel:${phone}`} style={{ color: 'var(--color-primary)' }}>
+            {phone}
+          </a>
+        </p>
+      )}
+
       <p style={{ fontSize: '0.85rem', color: 'var(--color-muted)' }}>
-        Merchant: {order.merchantId?.name}
+        <strong>Merchant:</strong> {order.merchantId?.name}
+        {order.merchantId?.phone && showFullDetails && (
+          <>
+            {' · '}
+            <a href={`tel:${order.merchantId.phone}`} style={{ color: 'var(--color-primary)' }}>
+              {order.merchantId.phone}
+            </a>
+          </>
+        )}
       </p>
+
       <p style={{ fontSize: '0.85rem', color: 'var(--color-muted)' }}>
-        📍 {order.location?.address} ({order.location?.zone})
+        📍 {order.location?.address} ({zoneName(order.location?.zone)})
       </p>
-      <p style={{ fontWeight: 600 }}>
+
+      {showFullDetails && (
+        <ul style={{ margin: '0.5rem 0', paddingLeft: '1.25rem', fontSize: '0.85rem' }}>
+          {order.items?.map((item, i) => (
+            <li key={i}>
+              {item.productName} ({item.quality}) x{item.quantity} {item.unit}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {showFullDetails && order.notes && (
+        <p style={{ fontSize: '0.85rem', color: 'var(--color-muted)' }}>
+          <strong>Notes:</strong> {order.notes}
+        </p>
+      )}
+
+      <p style={{ fontWeight: 600, marginTop: '0.35rem' }}>
         {order.totalPrice + (order.deliveryFee || 0)} ETB
         <span style={{ fontWeight: 400, color: 'var(--color-muted)', marginLeft: '0.5rem' }}>
-          (delivery fee: {order.deliveryFee || 0} ETB)
+          (items {order.totalPrice} + delivery {order.deliveryFee || 0})
         </span>
       </p>
-      {actions && <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>{actions}</div>}
+
+      {actions && <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>{actions}</div>}
     </div>
   );
 }
@@ -83,7 +142,7 @@ export default function DriverDeliveries() {
         <>
           <h2 style={{ fontSize: '1.15rem', marginBottom: '1rem' }}>Available Orders</h2>
           <p style={{ color: 'var(--color-muted)', marginBottom: '1rem', fontSize: '0.9rem' }}>
-            Pick an order you want to deliver. First come, first served.
+            Pick an order to deliver. Customer phone and full details appear after you claim it.
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '2rem' }}>
             {available.map((order) => (
@@ -106,6 +165,7 @@ export default function DriverDeliveries() {
               <OrderCard
                 key={order._id}
                 order={order}
+                showFullDetails
                 actions={
                   <>
                     {order.status === 'available_for_delivery' && (
@@ -128,7 +188,7 @@ export default function DriverDeliveries() {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {completed.map((order) => (
-            <OrderCard key={order._id} order={order} />
+            <OrderCard key={order._id} order={order} showFullDetails />
           ))}
           {!completed.length && <p className="empty-state">No completed deliveries yet.</p>}
         </div>
