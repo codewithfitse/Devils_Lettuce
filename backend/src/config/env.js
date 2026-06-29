@@ -13,6 +13,25 @@ for (const key of required) {
   }
 }
 
+function parseCorsOrigins() {
+  const origins = new Set(['http://localhost:5173', 'http://127.0.0.1:5173', "https://devils-lettuce.vercel.app"]);
+
+  if (process.env.FRONTEND_URL) {
+    origins.add(process.env.FRONTEND_URL.replace(/\/$/, ''));
+  }
+
+  if (process.env.CORS_ORIGINS) {
+    process.env.CORS_ORIGINS.split(',').forEach((o) => {
+      const trimmed = o.trim().replace(/\/$/, '');
+      if (trimmed) origins.add(trimmed);
+    });
+  }
+
+  // Vercel production + preview deployments
+  const list = [...origins, /^https:\/\/[\w-]+\.vercel\.app$/];
+  return list;
+}
+
 export default {
   nodeEnv: process.env.NODE_ENV || 'development',
   port: parseInt(process.env.PORT, 10) || 5000,
@@ -33,6 +52,7 @@ export default {
       process.env.ENABLE_TELEGRAM_BOT === 'true' ||
       (process.env.ENABLE_TELEGRAM_BOT !== 'false' && process.env.NODE_ENV === 'production'),
   },
+  corsOrigins: parseCorsOrigins(),
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
   backendUrl: process.env.BACKEND_URL,
   renderUrl: process.env.RENDER_EXTERNAL_URL,

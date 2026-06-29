@@ -6,7 +6,26 @@ import { errorHandler, notFound } from './middleware/errorHandler.js';
 
 const app = express();
 
-app.use(cors({ origin: env.frontendUrl, credentials: true }));
+app.use(
+  cors({
+    origin(origin, callback) {
+      // Allow server-to-server, Postman, curl
+      if (!origin) return callback(null, true);
+
+      const allowed = env.corsOrigins;
+      const isAllowed =
+        allowed.includes(origin) ||
+        allowed.some((o) => o instanceof RegExp && o.test(origin));
+
+      if (isAllowed) return callback(null, true);
+
+      console.warn(`[CORS] Blocked origin: ${origin}`);
+      return callback(null, false);
+    },
+    credentials: true,
+  })
+);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

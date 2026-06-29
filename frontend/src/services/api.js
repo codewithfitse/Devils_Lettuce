@@ -1,8 +1,10 @@
 import axios from 'axios';
 
 const api = axios.create({
+  // Production: use /api (Vercel proxies to Render) OR set VITE_API_URL for direct calls
   baseURL: import.meta.env.VITE_API_URL || '/api',
   headers: { 'Content-Type': 'application/json' },
+  timeout: 30000,
 });
 
 api.interceptors.request.use((config) => {
@@ -14,7 +16,12 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res.data,
   (error) => {
-    const message = error.response?.data?.message || 'Request failed';
+    if (!error.response && error.message === 'Network Error') {
+      return Promise.reject(
+        new Error('Cannot reach API. Check Vercel RENDER_API_URL and Render is running.')
+      );
+    }
+    const message = error.response?.data?.message || error.message || 'Request failed';
     return Promise.reject(new Error(message));
   }
 );
