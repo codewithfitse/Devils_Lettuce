@@ -19,11 +19,10 @@ async function bootstrap() {
       console.log('Telegram bot using TELEGRAM_BOT_TOKEN_LOCAL (dev test bot)');
     }
   } else if (env.telegram.botToken) {
-    const hint =
-      process.env.ENABLE_TELEGRAM_BOT === 'false'
-        ? 'ENABLE_TELEGRAM_BOT=false'
-        : 'set ENABLE_TELEGRAM_BOT=true or TELEGRAM_BOT_TOKEN_LOCAL for local testing';
-    console.log(`Telegram bot skipped (${hint}). API still runs.`);
+    console.log(
+      'Telegram bot skipped locally — it runs on Render. ' +
+        'Set ENABLE_TELEGRAM_BOT=true only to test the bot on this machine.'
+    );
   }
 
   startKeepAlive();

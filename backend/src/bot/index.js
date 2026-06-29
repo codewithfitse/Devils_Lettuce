@@ -350,6 +350,15 @@ export function startBot() {
     await ctx.reply(t(ctx.session.lang, 'mainMenu'), mainMenuKeyboard(ctx.session.lang));
   });
 
+  launchWithRetry(bot);
+
+  return bot;
+}
+
+function launchWithRetry(bot, attempt = 0) {
+  const isProduction = env.nodeEnv === 'production';
+  const delayMs = Math.min(60_000, 10_000 * (attempt + 1));
+
   bot.telegram.deleteWebhook({ drop_pending_updates: false }).finally(() => {
     bot
       .launch()
@@ -358,18 +367,27 @@ export function startBot() {
       })
       .catch((err) => {
         if (err.response?.error_code === 409) {
+          if (isProduction) {
+            console.warn(
+              `[Telegram] 409 — another instance is polling. Retrying in ${delayMs / 1000}s…`
+            );
+            setTimeout(() => launchWithRetry(bot, attempt + 1), delayMs);
+            return;
+          }
           console.warn(
-            '[Telegram] 409 Conflict — another instance is already polling this bot token.\n' +
-              '  • Pause Render while testing locally, OR\n' +
-              '  • Create a test bot via @BotFather and set TELEGRAM_BOT_TOKEN_LOCAL in .env'
+            '[Telegram] 409 Conflict — Render (or another dev server) is polling this token.\n' +
+              '  • Leave ENABLE_TELEGRAM_BOT=false locally and use Render for the bot, OR\n' +
+              '  • Pause Render and set ENABLE_TELEGRAM_BOT=true, OR\n' +
+              '  • Use TELEGRAM_BOT_TOKEN_LOCAL with a separate @BotFather test bot'
           );
         } else {
           console.error('[Telegram] Failed to start:', err.message);
+          if (isProduction) {
+            setTimeout(() => launchWithRetry(bot, attempt + 1), delayMs);
+          }
         }
       });
   });
-
-  return bot;
 }
 
 export async function stopBot() {

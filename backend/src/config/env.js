@@ -48,7 +48,9 @@ function resolveTelegramEnabled() {
   if (process.env.ENABLE_TELEGRAM_BOT === 'true') return true;
   // Dev-only test bot from @BotFather — avoids 409 with Render production bot
   if (!isProduction && process.env.TELEGRAM_BOT_TOKEN_LOCAL) return true;
+  // Production (Render): bot on by default
   if (isProduction) return true;
+  // Local dev: off by default — Render handles Telegram
   return false;
 }
 
