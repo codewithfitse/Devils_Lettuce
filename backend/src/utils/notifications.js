@@ -16,6 +16,26 @@ async function sendTelegramMessage(chatId, message) {
   }
 }
 
+async function sendTelegramPhoto(chatId, photoUrl, caption) {
+  if (!botInstance || !chatId) return;
+  try {
+    await botInstance.telegram.sendPhoto(chatId, photoUrl, {
+      caption,
+      parse_mode: 'HTML',
+    });
+  } catch (error) {
+    console.error('Telegram photo failed:', error.message);
+    await sendTelegramMessage(chatId, `${caption}\n\n📎 Proof: ${photoUrl}`);
+  }
+}
+
+async function notifyRecipients(chatIds, message, photoUrl) {
+  const unique = [...new Set(chatIds.filter(Boolean).map(String))];
+  await Promise.all(
+    unique.map((chatId) => (photoUrl ? sendTelegramPhoto(chatId, photoUrl, message) : sendTelegramMessage(chatId, message)))
+  );
+}
+
 function formatDriverOrderMessage(order) {
   const orderId = order._id.toString().slice(-6);
   const customerPhone = order.phone || order.userId?.phone || 'N/A';
@@ -53,6 +73,45 @@ function formatDriverOrderMessage(order) {
   }
 
   return text;
+}
+
+function formatPaymentUploadedAlert(payment) {
+  const user = payment.userId;
+  const customerName = user?.name || 'Customer';
+  const customerPhone = user?.phone || 'N/A';
+  const orderRefs = (payment.orderIds || [])
+    .map((o) => {
+      const id = o?._id ? o._id.toString().slice(-6) : String(o).slice(-6);
+      return `#${id}`;
+    })
+    .join(', ');
+
+  let text =
+    `💳 <b>Payment Uploaded</b>\n\n` +
+    `<b>Customer:</b> ${customerName}\n` +
+    `<b>Phone:</b> ${customerPhone}\n` +
+    `<b>Amount:</b> ${payment.totalAmount} ETB\n` +
+    `<b>Orders:</b> ${orderRefs || '—'}`;
+
+  if (payment.telebirrReference) {
+    text += `\n<b>Telebirr ref:</b> ${payment.telebirrReference}`;
+  }
+
+  text += `\n\n⏳ <b>Pending</b> — open Admin → Payments to approve or reject.`;
+
+  return text;
+}
+
+function paymentRecipientChatIds(payment) {
+  const chatIds = [];
+  if (env.telegram.adminChatId) chatIds.push(String(env.telegram.adminChatId));
+
+  for (const order of payment.orderIds || []) {
+    const merchant = order?.merchantId;
+    if (merchant?.telegramId) chatIds.push(String(merchant.telegramId));
+  }
+
+  return chatIds;
 }
 
 function formatNewOrderAlert(order) {
@@ -129,14 +188,10 @@ export const notifications = {
   },
 
   async paymentUploaded(payment) {
-    if (!env.telegram.adminChatId) return;
-    await sendTelegramMessage(
-      env.telegram.adminChatId,
-      `💳 <b>Payment Uploaded</b>\n` +
-        `Amount: ${payment.totalAmount} ETB\n` +
-        `Orders: ${payment.orderIds.length}\n` +
-        `Please validate in admin dashboard.`
-    );
+    const message = formatPaymentUploadedAlert(payment);
+    const chatIds = paymentRecipientChatIds(payment);
+    if (chatIds.length === 0) return;
+    await notifyRecipients(chatIds, message, payment.proof);
   },
 
   async paymentApproved(user, payment) {

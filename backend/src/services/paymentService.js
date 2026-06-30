@@ -43,7 +43,12 @@ export async function createPayment({ orderIds, telebirrReference }, user, proof
     await order.save();
   }
 
-  await notifications.paymentUploaded(payment);
+  await notifications.paymentUploaded(
+    await payment.populate([
+      { path: 'userId', select: 'name phone telegramId' },
+      { path: 'orderIds', populate: { path: 'merchantId', select: 'name telegramId' } },
+    ])
+  );
   return payment.populate('orderIds');
 }
 
