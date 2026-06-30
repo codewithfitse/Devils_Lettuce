@@ -79,4 +79,6 @@ export default {
   backendUrl: process.env.BACKEND_URL,
   renderUrl: process.env.RENDER_EXTERNAL_URL,
   telebirrAccount: process.env.TELEBIRR_ACCOUNT || '0982863015',
+  paymentVerifyEnabled: process.env.PAYMENT_VERIFY_ENABLED !== 'false',
+  tesseractLang: process.env.TESSERACT_LANG || 'eng',
 };

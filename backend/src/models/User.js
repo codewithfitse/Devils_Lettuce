@@ -27,6 +27,7 @@ const userSchema = new mongoose.Schema(
     },
     language: { type: String, enum: ['en', 'am'], default: 'en' },
     isActive: { type: Boolean, default: true },
+    paymentViolationCount: { type: Number, default: 0, min: 0 },
   },
   { timestamps: true }
 );

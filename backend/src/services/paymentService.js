@@ -3,10 +3,36 @@ import Order, { ORDER_STATUS } from '../models/Order.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { notifications } from '../utils/notifications.js';
 import { deductStockForOrder } from './orderService.js';
+import { schedulePaymentVerification } from './paymentVerificationService.js';
+import {
+  assertTransactionAvailable,
+  hashProofBuffer,
+  normalizeTransactionRef,
+  resolveTransactionKey,
+} from '../utils/transactionDuplicate.js';
+import { recordPaymentViolation } from './paymentViolationService.js';
+import axios from 'axios';
 
 const PAYMENT_EXPIRY_MS = 24 * 60 * 60 * 1000;
 
-export async function createPayment({ orderIds, telebirrReference }, user, proofUrl) {
+async function resolveProofHash(proofUrl, proofBuffer) {
+  if (proofBuffer) return hashProofBuffer(proofBuffer);
+  if (!proofUrl) return null;
+
+  const response = await axios.get(proofUrl, {
+    responseType: 'arraybuffer',
+    timeout: 30000,
+    maxContentLength: 10 * 1024 * 1024,
+  });
+  return hashProofBuffer(Buffer.from(response.data));
+}
+
+export async function createPayment(
+  { orderIds, telebirrReference },
+  user,
+  proofUrl,
+  proofBuffer = null
+) {
   const orders = await Order.find({
     _id: { $in: orderIds },
     userId: user._id,
@@ -27,12 +53,27 @@ export async function createPayment({ orderIds, telebirrReference }, user, proof
 
   const totalAmount = orders.reduce((sum, o) => sum + o.totalPrice + o.deliveryFee, 0);
 
+  const transactionKey = normalizeTransactionRef(telebirrReference);
+  const proofHash = await resolveProofHash(proofUrl, proofBuffer);
+
+  const duplicateCheck = await assertTransactionAvailable({ transactionKey, proofHash });
+  if (duplicateCheck.duplicate) {
+    await recordPaymentViolation(
+      user._id,
+      null,
+      duplicateCheck.message
+    );
+    throw new AppError(duplicateCheck.message, 400);
+  }
+
   const payment = await Payment.create({
     userId: user._id,
     orderIds: orders.map((o) => o._id),
     totalAmount,
     proof: proofUrl,
+    proofHash,
     telebirrReference,
+    transactionKey,
     status: PAYMENT_STATUS.PENDING,
     expiresAt: new Date(Date.now() + PAYMENT_EXPIRY_MS),
   });
@@ -49,6 +90,7 @@ export async function createPayment({ orderIds, telebirrReference }, user, proof
       { path: 'orderIds', populate: { path: 'merchantId', select: 'name telegramId' } },
     ])
   );
+  schedulePaymentVerification(payment._id);
   return payment.populate('orderIds');
 }
 
@@ -101,6 +143,25 @@ export async function approvePayment(id, requester) {
     payment.status = PAYMENT_STATUS.EXPIRED;
     await payment.save();
     throw new AppError('Payment has expired', 400);
+  }
+
+  const transactionKey = resolveTransactionKey(
+    payment.telebirrReference,
+    payment.verification?.extracted?.reference
+  );
+  if (transactionKey) {
+    const duplicateCheck = await assertTransactionAvailable({
+      transactionKey,
+      proofHash: payment.proofHash,
+      excludePaymentId: payment._id,
+    });
+    if (duplicateCheck.duplicate) {
+      throw new AppError(
+        'Cannot approve: this Telebirr transaction was already used on another payment.',
+        400
+      );
+    }
+    payment.transactionKey = transactionKey;
   }
 
   payment.status = PAYMENT_STATUS.APPROVED;

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { paymentApi } from '../../services/api';
 import OrderStatusBadge from '../../components/OrderStatusBadge';
+import PaymentVerificationPanel from '../../components/PaymentVerificationPanel';
 
 export default function AdminPayments() {
   const [payments, setPayments] = useState([]);
@@ -8,6 +9,16 @@ export default function AdminPayments() {
 
   const load = () => paymentApi.getAll().then((res) => setPayments(res.data));
   useEffect(() => { load(); }, []);
+
+  const hasProcessing = payments.some(
+    (p) => p.status === 'pending' && ['pending', 'processing'].includes(p.verification?.status)
+  );
+
+  useEffect(() => {
+    if (!hasProcessing) return undefined;
+    const timer = setInterval(load, 4000);
+    return () => clearInterval(timer);
+  }, [hasProcessing]);
 
   const approve = async (id) => {
     await paymentApi.approve(id);
@@ -26,22 +37,39 @@ export default function AdminPayments() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         {payments.map((p) => (
           <div key={p._id} className="card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
               <strong>{p.totalAmount} ETB</strong>
               <OrderStatusBadge status={p.status} />
             </div>
             <p style={{ fontSize: '0.85rem', color: 'var(--color-muted)' }}>
               By: {p.userId?.name} · Orders: {p.orderIds?.length} · Expires: {new Date(p.expiresAt).toLocaleString()}
             </p>
+            {p.telebirrReference && (
+              <p style={{ fontSize: '0.85rem', color: 'var(--color-muted)' }}>
+                User reference: {p.telebirrReference}
+              </p>
+            )}
+
+            {p.duplicateViolation && (
+              <div className="alert alert-error" style={{ marginTop: '0.75rem' }}>
+                Duplicate receipt violation — this Telebirr transaction was already used.
+                {p.duplicateOfPaymentId && (
+                  <span> Original payment #{String(p.duplicateOfPaymentId).slice(-6)}.</span>
+                )}
+              </div>
+            )}
+
+            <PaymentVerificationPanel payment={p} />
+
             {p.proof && (
-              <a href={p.proof} target="_blank" rel="noreferrer" style={{ display: 'block', margin: '0.75rem 0' }}>
-                View Payment Proof
+              <a href={p.proof} target="_blank" rel="noreferrer" className="payment-proof-link">
+                Open full-size proof
               </a>
             )}
             {p.status === 'pending' && (
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <button className="btn btn-sm btn-primary" onClick={() => approve(p._id)}>Approve</button>
-                <button className="btn btn-sm btn-danger" onClick={() => reject(p._id)}>Reject</button>
+              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
+                <button type="button" className="btn btn-sm btn-primary" onClick={() => approve(p._id)}>Approve</button>
+                <button type="button" className="btn btn-sm btn-danger" onClick={() => reject(p._id)}>Reject</button>
               </div>
             )}
           </div>

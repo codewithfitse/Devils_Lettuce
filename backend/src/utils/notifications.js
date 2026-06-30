@@ -75,6 +75,60 @@ function formatDriverOrderMessage(order) {
   return text;
 }
 
+function formatVerificationRecommendation(recommendation) {
+  switch (recommendation) {
+    case 'likely_real':
+      return 'Likely real';
+    case 'likely_fake':
+      return 'Likely fake';
+    default:
+      return 'Uncertain';
+  }
+}
+
+function formatPaymentVerificationAlert(payment) {
+  const v = payment.verification || {};
+  const paymentRef = payment._id.toString().slice(-6);
+  const customerName = payment.userId?.name || 'Customer';
+
+  if (v.status === 'failed') {
+    return (
+      `⚠️ <b>Payment Scan Failed</b> #${paymentRef}\n` +
+      `Customer: ${customerName}\n` +
+      `Amount: ${payment.totalAmount} ETB\n` +
+      `Error: ${v.error || 'Unknown error'}\n\n` +
+      `Review manually in Admin → Payments.`
+    );
+  }
+
+  const failedChecks = (v.checks || []).filter((c) => !c.passed).slice(0, 3);
+  let text =
+    `🔍 <b>Payment Scan Complete</b> #${paymentRef}\n\n` +
+    `<b>Confidence:</b> ${v.confidence ?? 0}% — ${formatVerificationRecommendation(v.recommendation)}\n` +
+    `<b>Customer:</b> ${customerName}\n` +
+    `<b>Amount:</b> ${payment.totalAmount} ETB`;
+
+  if (v.extracted?.amount != null) {
+    text += `\n<b>OCR amount:</b> ${v.extracted.amount} ETB`;
+  }
+  if (v.extracted?.recipient) {
+    text += `\n<b>OCR recipient:</b> ${v.extracted.recipient}`;
+  }
+  if (v.extracted?.reference) {
+    text += `\n<b>OCR reference:</b> ${v.extracted.reference}`;
+  }
+
+  if (failedChecks.length) {
+    text += `\n\n<b>Failed checks:</b>`;
+    for (const check of failedChecks) {
+      text += `\n• ${check.label}`;
+    }
+  }
+
+  text += `\n\nYou decide — open Admin → Payments to approve or reject.`;
+  return text;
+}
+
 function formatPaymentUploadedAlert(payment) {
   const user = payment.userId;
   const customerName = user?.name || 'Customer';
@@ -192,6 +246,36 @@ export const notifications = {
     const chatIds = paymentRecipientChatIds(payment);
     if (chatIds.length === 0) return;
     await notifyRecipients(chatIds, message, payment.proof);
+  },
+
+  async paymentVerificationComplete(payment) {
+    const message = formatPaymentVerificationAlert(payment);
+    const chatIds = paymentRecipientChatIds(payment);
+    if (chatIds.length === 0) return;
+    await notifyRecipients(chatIds, message);
+  },
+
+  async paymentDuplicateViolation(payment, duplicateOfPaymentId) {
+    const paymentRef = payment._id.toString().slice(-6);
+    const originalRef = duplicateOfPaymentId
+      ? duplicateOfPaymentId.toString().slice(-6)
+      : 'unknown';
+    const customerName = payment.userId?.name || 'Customer';
+
+    const message =
+      `🚨 <b>Duplicate Receipt Blocked</b> #${paymentRef}\n\n` +
+      `<b>Customer:</b> ${customerName}\n` +
+      `<b>Amount:</b> ${payment.totalAmount} ETB\n` +
+      `Same Telebirr receipt/transaction already used on payment #${originalRef}.\n` +
+      `One transaction = one payment only.\n\n` +
+      `Payment was rejected and violation recorded.`;
+
+    let chatIds = paymentRecipientChatIds(payment);
+    if (chatIds.length === 0 && env.telegram.adminChatId) {
+      chatIds = [String(env.telegram.adminChatId)];
+    }
+    if (chatIds.length === 0) return;
+    await notifyRecipients(chatIds, message);
   },
 
   async paymentApproved(user, payment) {

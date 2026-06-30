@@ -7,6 +7,58 @@ export const PAYMENT_STATUS = {
   EXPIRED: 'expired',
 };
 
+export const VERIFICATION_STATUS = {
+  PENDING: 'pending',
+  PROCESSING: 'processing',
+  COMPLETED: 'completed',
+  FAILED: 'failed',
+};
+
+export const VERIFICATION_RECOMMENDATION = {
+  LIKELY_REAL: 'likely_real',
+  UNCERTAIN: 'uncertain',
+  LIKELY_FAKE: 'likely_fake',
+};
+
+const verificationCheckSchema = new mongoose.Schema(
+  {
+    id: { type: String, required: true },
+    label: { type: String, required: true },
+    passed: { type: Boolean, required: true },
+    points: { type: Number, required: true },
+    maxPoints: { type: Number, required: true },
+    detail: { type: String },
+  },
+  { _id: false }
+);
+
+const verificationSchema = new mongoose.Schema(
+  {
+    status: {
+      type: String,
+      enum: Object.values(VERIFICATION_STATUS),
+      default: VERIFICATION_STATUS.PENDING,
+    },
+    confidence: { type: Number, min: 0, max: 100 },
+    recommendation: {
+      type: String,
+      enum: Object.values(VERIFICATION_RECOMMENDATION),
+    },
+    extracted: {
+      amount: { type: Number },
+      recipient: { type: String },
+      reference: { type: String },
+      successText: { type: String },
+      rawText: { type: String },
+    },
+    checks: [verificationCheckSchema],
+    processedAt: { type: Date },
+    error: { type: String },
+    duplicateViolation: { type: Boolean, default: false },
+  },
+  { _id: false }
+);
+
 const paymentSchema = new mongoose.Schema(
   {
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
@@ -23,12 +75,21 @@ const paymentSchema = new mongoose.Schema(
     reviewedAt: { type: Date },
     rejectionReason: { type: String },
     telebirrReference: { type: String },
+    transactionKey: { type: String, trim: true },
+    proofHash: { type: String },
+    duplicateViolation: { type: Boolean, default: false },
+    violationReason: { type: String },
+    duplicateOfPaymentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Payment' },
+    duplicateType: { type: String, enum: ['transaction_reference', 'proof_image'] },
+    verification: { type: verificationSchema, default: () => ({ status: VERIFICATION_STATUS.PENDING }) },
   },
   { timestamps: true }
 );
 
 paymentSchema.index({ userId: 1, status: 1 });
 paymentSchema.index({ status: 1, expiresAt: 1 });
+paymentSchema.index({ transactionKey: 1, status: 1 });
+paymentSchema.index({ proofHash: 1, status: 1 });
 
 paymentSchema.pre('save', function (next) {
   if (!this.expiresAt) {

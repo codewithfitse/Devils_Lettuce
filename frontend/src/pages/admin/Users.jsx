@@ -52,6 +52,7 @@ export default function AdminUsers() {
               <th>Phone</th>
               <th>Role</th>
               <th>Status</th>
+              <th>Violations</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -75,6 +76,15 @@ export default function AdminUsers() {
                   </select>
                 </td>
                 <td>{u.isActive ? '✅ Active' : '🚫 Banned'}</td>
+                <td>
+                  {(u.paymentViolationCount || 0) > 0 ? (
+                    <span style={{ color: 'var(--color-danger)', fontWeight: 600 }}>
+                      {u.paymentViolationCount}
+                    </span>
+                  ) : (
+                    '0'
+                  )}
+                </td>
                 <td>
                   {!isProtected(u) && (
                     <button

@@ -22,7 +22,8 @@ export async function createPayment(req, res) {
   const payment = await paymentService.createPayment(
     { ...req.body, orderIds },
     req.user,
-    proofUrl
+    proofUrl,
+    req.file?.buffer || null
   );
   res.status(201).json({ success: true, data: payment });
 }
