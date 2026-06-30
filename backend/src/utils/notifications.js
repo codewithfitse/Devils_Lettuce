@@ -55,16 +55,48 @@ function formatDriverOrderMessage(order) {
   return text;
 }
 
+function formatNewOrderAlert(order) {
+  const orderId = order._id.toString().slice(-6);
+  const customerName = order.userId?.name || 'Customer';
+  const customerPhone = order.phone || order.userId?.phone || 'N/A';
+  const zoneKey = order.location?.zone;
+  const zoneLabel = zoneKey ? getZoneName(zoneKey) : 'N/A';
+  const address = order.location?.address || 'N/A';
+  const items = order.items
+    .map((i) => `• ${i.productName} (${i.quality}) x${i.quantity}`)
+    .join('\n');
+  const total = order.totalPrice + (order.deliveryFee || 0);
+
+  let text =
+    `🛒 <b>New Order #${orderId}</b>\n\n` +
+    `<b>Customer:</b> ${customerName}\n` +
+    `<b>Phone:</b> ${customerPhone}\n` +
+    `<b>Address:</b> ${address}\n` +
+    `<b>Zone:</b> ${zoneLabel}\n\n` +
+    `<b>Items:</b>\n${items}\n\n` +
+    `<b>Total:</b> ${total} ETB`;
+
+  if (order.notes) {
+    text += `\n<b>Notes:</b> ${order.notes}`;
+  }
+
+  text += `\n\n⏳ <b>Pending</b> — open Admin or Merchant → Orders to accept or reject.`;
+
+  return text;
+}
+
 export const notifications = {
   async newOrder(merchant, order) {
-    if (!merchant.telegramId) return;
-    await sendTelegramMessage(
-      merchant.telegramId,
-      `🛒 <b>New Order #${order._id.toString().slice(-6)}</b>\n` +
-        `Total: ${order.totalPrice} ETB\n` +
-        `Items: ${order.items.length}\n` +
-        `Please accept or reject in your dashboard.`
-    );
+    const message = formatNewOrderAlert(order);
+    const adminChatId = env.telegram.adminChatId ? String(env.telegram.adminChatId) : null;
+    const merchantChatId = merchant?.telegramId ? String(merchant.telegramId) : null;
+
+    if (merchantChatId) {
+      await sendTelegramMessage(merchantChatId, message);
+    }
+    if (adminChatId && adminChatId !== merchantChatId) {
+      await sendTelegramMessage(adminChatId, message);
+    }
   },
 
   async orderAccepted(user, order) {

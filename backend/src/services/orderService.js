@@ -25,8 +25,8 @@ export async function createOrders({ cartItems, location, phone, notes }, user) 
     });
 
     const populated = await order.populate([
-      { path: 'merchantId', select: 'name telegramId' },
-      { path: 'userId', select: 'name telegramId' },
+      { path: 'merchantId', select: 'name telegramId phone' },
+      { path: 'userId', select: 'name phone telegramId' },
     ]);
 
     orders.push(populated);

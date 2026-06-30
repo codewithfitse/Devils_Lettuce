@@ -28,14 +28,10 @@ export default function ProductDetail() {
 
   return (
     <div className="container page-section">
-      <div className="card" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '2rem' }}>
+      <div className="card product-detail-grid">
         <div
-          className="card-product-image"
-          style={{
-            height: 320,
-            borderRadius: 'var(--radius-lg)',
-            ...(product.image ? { backgroundImage: `url(${product.image})` } : {}),
-          }}
+          className="card-product-image product-detail-image"
+          style={product.image ? { backgroundImage: `url(${product.image})` } : undefined}
         />
         <div>
           <h1 className="section-title" style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>{product.name}</h1>

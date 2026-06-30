@@ -43,7 +43,7 @@ export default function AdminUsers() {
     <div>
       <h1 className="page-title">Users</h1>
       {error && <div className="alert alert-error">{error}</div>}
-      <div className="card" style={{ overflow: 'auto' }}>
+      <div className="card table-wrap">
         <table className="table">
           <thead>
             <tr>

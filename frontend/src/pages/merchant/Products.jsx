@@ -251,7 +251,7 @@ export default function MerchantProducts() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+      <div className="page-header-row">
         <h1 className="page-title" style={{ marginBottom: 0 }}>My Products</h1>
         <button type="button" className="btn btn-primary" onClick={() => (showForm ? cancelForm() : startCreate())}>
           {showForm ? 'Cancel' : '+ Add Product'}
