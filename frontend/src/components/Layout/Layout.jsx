@@ -1,8 +1,9 @@
 import { useState, useEffect, cloneElement } from 'react';
 import { useLocation } from 'react-router-dom';
 import Navbar from './Navbar';
+import PanelMobileNav from './PanelMobileNav';
 
-export default function Layout({ children, sidebar }) {
+export default function Layout({ children, sidebar, panelLinks }) {
   const [panelOpen, setPanelOpen] = useState(false);
   const location = useLocation();
 
@@ -33,19 +34,21 @@ export default function Layout({ children, sidebar }) {
           >
             ☰ Menu
           </button>
-          <button
-            type="button"
-            className={`panel-overlay${panelOpen ? ' visible' : ''}`}
-            aria-label="Close panel menu"
-            onClick={() => setPanelOpen(false)}
-            tabIndex={panelOpen ? 0 : -1}
-          />
+          {panelOpen && (
+            <button
+              type="button"
+              className="panel-overlay visible"
+              aria-label="Close panel menu"
+              onClick={() => setPanelOpen(false)}
+            />
+          )}
           <div className="panel-layout">
             <div className={`sidebar-drawer${panelOpen ? ' open' : ''}`}>
               {sidebarWithClose}
             </div>
             <main className="panel-main">{children}</main>
           </div>
+          {panelLinks?.length > 0 && <PanelMobileNav links={panelLinks} />}
         </div>
       ) : (
         <main className="site-main">{children}</main>

@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { orderApi, productApi } from '../../services/api';
+import DashboardStatCard from '../../components/DashboardStatCard';
 
 export default function MerchantDashboard() {
   const [stats, setStats] = useState({ orders: 0, pending: 0, products: 0 });
@@ -17,18 +19,18 @@ export default function MerchantDashboard() {
   return (
     <div>
       <h1 className="page-title">Merchant Dashboard</h1>
+
+      {stats.pending > 0 && (
+        <Link to="/merchant/orders" className="dashboard-alert">
+          <span>⏳ <strong>{stats.pending} pending order{stats.pending === 1 ? '' : 's'}</strong> waiting — tap to accept</span>
+          <span className="dashboard-alert-action">View Orders →</span>
+        </Link>
+      )}
+
       <div className="grid grid-2">
-        {[
-          { label: 'My Products', value: stats.products, icon: '🍎' },
-          { label: 'Total Orders', value: stats.orders, icon: '📦' },
-          { label: 'Pending Orders', value: stats.pending, icon: '⏳' },
-        ].map((c) => (
-          <div key={c.label} className="card" style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '2rem' }}>{c.icon}</div>
-            <div style={{ fontSize: '2rem', fontWeight: 700 }}>{c.value}</div>
-            <div style={{ color: 'var(--color-muted)' }}>{c.label}</div>
-          </div>
-        ))}
+        <DashboardStatCard to="/merchant/products" icon="🍎" value={stats.products} label="My Products" />
+        <DashboardStatCard to="/merchant/orders" icon="📦" value={stats.orders} label="Total Orders" />
+        <DashboardStatCard to="/merchant/orders" icon="⏳" value={stats.pending} label="Pending Orders" />
       </div>
     </div>
   );

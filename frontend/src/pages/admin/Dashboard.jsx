@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { orderApi, paymentApi, productApi, userApi } from '../../services/api';
+import DashboardStatCard from '../../components/DashboardStatCard';
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState({ orders: 0, payments: 0, products: 0, users: 0, pendingPayments: 0 });
@@ -20,24 +22,22 @@ export default function AdminDashboard() {
     });
   }, []);
 
-  const cards = [
-    { label: 'Total Orders', value: stats.orders, icon: '📦' },
-    { label: 'Pending Payments', value: stats.pendingPayments, icon: '💳' },
-    { label: 'Products to Approve', value: stats.products, icon: '🍎' },
-    { label: 'Users', value: stats.users, icon: '👥' },
-  ];
-
   return (
     <div>
       <h1 className="page-title">Admin Dashboard</h1>
+
+      {stats.pendingPayments > 0 && (
+        <Link to="/admin/payments" className="dashboard-alert">
+          <span>💳 <strong>{stats.pendingPayments} payment{stats.pendingPayments === 1 ? '' : 's'}</strong> to review</span>
+          <span className="dashboard-alert-action">Review →</span>
+        </Link>
+      )}
+
       <div className="grid grid-2">
-        {cards.map((c) => (
-          <div key={c.label} className="card" style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>{c.icon}</div>
-            <div style={{ fontSize: '2rem', fontWeight: 700 }}>{c.value}</div>
-            <div style={{ color: 'var(--color-muted)' }}>{c.label}</div>
-          </div>
-        ))}
+        <DashboardStatCard to="/admin/orders" icon="📦" value={stats.orders} label="Total Orders" />
+        <DashboardStatCard to="/admin/payments" icon="💳" value={stats.pendingPayments} label="Pending Payments" />
+        <DashboardStatCard to="/admin/products" icon="🍎" value={stats.products} label="Products to Approve" />
+        <DashboardStatCard to="/admin/users" icon="👥" value={stats.users} label="Users" />
       </div>
     </div>
   );

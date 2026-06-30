@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { deliveryApi } from '../../services/api';
+import DashboardStatCard from '../../components/DashboardStatCard';
 
 export default function DriverDashboard() {
   const [available, setAvailable] = useState(0);
@@ -13,17 +15,17 @@ export default function DriverDashboard() {
   return (
     <div>
       <h1 className="page-title">Driver Dashboard</h1>
+
+      {available > 0 && (
+        <Link to="/driver/deliveries" className="dashboard-alert">
+          <span>📢 <strong>{available} deliver{available === 1 ? 'y' : 'ies'}</strong> available to claim</span>
+          <span className="dashboard-alert-action">View →</span>
+        </Link>
+      )}
+
       <div className="grid grid-2">
-        <div className="card" style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '2rem' }}>📢</div>
-          <div style={{ fontSize: '2rem', fontWeight: 700 }}>{available}</div>
-          <div style={{ color: 'var(--color-muted)' }}>Available to Claim</div>
-        </div>
-        <div className="card" style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '2rem' }}>🚗</div>
-          <div style={{ fontSize: '2rem', fontWeight: 700 }}>{active}</div>
-          <div style={{ color: 'var(--color-muted)' }}>My Active Deliveries</div>
-        </div>
+        <DashboardStatCard to="/driver/deliveries" icon="📢" value={available} label="Available to Claim" />
+        <DashboardStatCard to="/driver/deliveries" icon="🚗" value={active} label="My Active Deliveries" />
       </div>
     </div>
   );

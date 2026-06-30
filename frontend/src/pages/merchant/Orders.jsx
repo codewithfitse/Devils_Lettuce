@@ -60,10 +60,11 @@ function MerchantOrderCard({ order, user, run }) {
       <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
         {order.status === 'pending' && (
           <>
-            <button className="btn btn-sm btn-primary" onClick={() => run(() => orderApi.accept(order._id))}>
+            <button type="button" className="btn btn-sm btn-primary" onClick={() => run(() => orderApi.accept(order._id))}>
               Accept
             </button>
             <button
+              type="button"
               className="btn btn-sm btn-danger"
               onClick={() => run(() => orderApi.reject(order._id, prompt('Rejection reason:') || ''))}
             >

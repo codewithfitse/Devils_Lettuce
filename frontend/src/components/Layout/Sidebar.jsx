@@ -18,7 +18,7 @@ export default function Sidebar({ links, onNavigate }) {
             to={link.to}
             end={link.end}
             className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}
-            onClick={onNavigate}
+            onClick={() => onNavigate?.()}
           >
             {link.icon} {link.label}
           </NavLink>

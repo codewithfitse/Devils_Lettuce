@@ -34,22 +34,22 @@ import DriverDashboard from './pages/driver/Dashboard';
 import DriverDeliveries from './pages/driver/Deliveries';
 
 const adminLinks = [
-  { to: '/admin', label: 'Dashboard', icon: '📊', end: true },
-  { to: '/admin/users', label: 'Users', icon: '👥' },
-  { to: '/admin/products', label: 'Products', icon: '🍎' },
-  { to: '/admin/orders', label: 'Orders', icon: '📦' },
-  { to: '/admin/payments', label: 'Payments', icon: '💳' },
+  { to: '/admin', label: 'Dashboard', shortLabel: 'Home', icon: '📊', end: true },
+  { to: '/admin/users', label: 'Users', shortLabel: 'Users', icon: '👥' },
+  { to: '/admin/products', label: 'Products', shortLabel: 'Products', icon: '🍎' },
+  { to: '/admin/orders', label: 'Orders', shortLabel: 'Orders', icon: '📦' },
+  { to: '/admin/payments', label: 'Payments', shortLabel: 'Pay', icon: '💳' },
 ];
 
 const merchantLinks = [
-  { to: '/merchant', label: 'Dashboard', icon: '📊', end: true },
-  { to: '/merchant/products', label: 'My Products', icon: '🍎' },
-  { to: '/merchant/orders', label: 'Orders', icon: '📦' },
+  { to: '/merchant', label: 'Dashboard', shortLabel: 'Home', icon: '📊', end: true },
+  { to: '/merchant/products', label: 'My Products', shortLabel: 'Products', icon: '🍎' },
+  { to: '/merchant/orders', label: 'Orders', shortLabel: 'Orders', icon: '📦' },
 ];
 
 const driverLinks = [
-  { to: '/driver', label: 'Dashboard', icon: '📊', end: true },
-  { to: '/driver/deliveries', label: 'Deliveries', icon: '🚗' },
+  { to: '/driver', label: 'Dashboard', shortLabel: 'Home', icon: '📊', end: true },
+  { to: '/driver/deliveries', label: 'Deliveries', shortLabel: 'Deliver', icon: '🚗' },
 ];
 
 export default function App() {
@@ -71,38 +71,38 @@ export default function App() {
 
       {/* Admin panel — super admin only */}
       <Route path="/admin" element={
-        <ProtectedRoute roles={['super_admin']}><Layout sidebar={<Sidebar links={adminLinks} />}><AdminDashboard /></Layout></ProtectedRoute>
+        <ProtectedRoute roles={['super_admin']}><Layout sidebar={<Sidebar links={adminLinks} />} panelLinks={adminLinks}><AdminDashboard /></Layout></ProtectedRoute>
       } />
       <Route path="/admin/users" element={
-        <ProtectedRoute roles={['super_admin']}><Layout sidebar={<Sidebar links={adminLinks} />}><AdminUsers /></Layout></ProtectedRoute>
+        <ProtectedRoute roles={['super_admin']}><Layout sidebar={<Sidebar links={adminLinks} />} panelLinks={adminLinks}><AdminUsers /></Layout></ProtectedRoute>
       } />
       <Route path="/admin/products" element={
-        <ProtectedRoute roles={['super_admin']}><Layout sidebar={<Sidebar links={adminLinks} />}><AdminProducts /></Layout></ProtectedRoute>
+        <ProtectedRoute roles={['super_admin']}><Layout sidebar={<Sidebar links={adminLinks} />} panelLinks={adminLinks}><AdminProducts /></Layout></ProtectedRoute>
       } />
       <Route path="/admin/orders" element={
-        <ProtectedRoute roles={['super_admin']}><Layout sidebar={<Sidebar links={adminLinks} />}><AdminOrders /></Layout></ProtectedRoute>
+        <ProtectedRoute roles={['super_admin']}><Layout sidebar={<Sidebar links={adminLinks} />} panelLinks={adminLinks}><AdminOrders /></Layout></ProtectedRoute>
       } />
       <Route path="/admin/payments" element={
-        <ProtectedRoute roles={['super_admin']}><Layout sidebar={<Sidebar links={adminLinks} />}><AdminPayments /></Layout></ProtectedRoute>
+        <ProtectedRoute roles={['super_admin']}><Layout sidebar={<Sidebar links={adminLinks} />} panelLinks={adminLinks}><AdminPayments /></Layout></ProtectedRoute>
       } />
 
       {/* Merchant panel */}
       <Route path="/merchant" element={
-        <ProtectedRoute permission="canSell"><Layout sidebar={<Sidebar links={merchantLinks} />}><MerchantDashboard /></Layout></ProtectedRoute>
+        <ProtectedRoute permission="canSell"><Layout sidebar={<Sidebar links={merchantLinks} />} panelLinks={merchantLinks}><MerchantDashboard /></Layout></ProtectedRoute>
       } />
       <Route path="/merchant/products" element={
-        <ProtectedRoute permission="canSell"><Layout sidebar={<Sidebar links={merchantLinks} />}><MerchantProducts /></Layout></ProtectedRoute>
+        <ProtectedRoute permission="canSell"><Layout sidebar={<Sidebar links={merchantLinks} />} panelLinks={merchantLinks}><MerchantProducts /></Layout></ProtectedRoute>
       } />
       <Route path="/merchant/orders" element={
-        <ProtectedRoute permission="canSell"><Layout sidebar={<Sidebar links={merchantLinks} />}><MerchantOrders /></Layout></ProtectedRoute>
+        <ProtectedRoute permission="canSell"><Layout sidebar={<Sidebar links={merchantLinks} />} panelLinks={merchantLinks}><MerchantOrders /></Layout></ProtectedRoute>
       } />
 
       {/* Driver panel */}
       <Route path="/driver" element={
-        <ProtectedRoute permission="canDeliver"><Layout sidebar={<Sidebar links={driverLinks} />}><DriverDashboard /></Layout></ProtectedRoute>
+        <ProtectedRoute permission="canDeliver"><Layout sidebar={<Sidebar links={driverLinks} />} panelLinks={driverLinks}><DriverDashboard /></Layout></ProtectedRoute>
       } />
       <Route path="/driver/deliveries" element={
-        <ProtectedRoute permission="canDeliver"><Layout sidebar={<Sidebar links={driverLinks} />}><DriverDeliveries /></Layout></ProtectedRoute>
+        <ProtectedRoute permission="canDeliver"><Layout sidebar={<Sidebar links={driverLinks} />} panelLinks={driverLinks}><DriverDeliveries /></Layout></ProtectedRoute>
       } />
     </Routes>
   );
