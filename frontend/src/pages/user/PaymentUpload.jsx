@@ -95,8 +95,15 @@ export default function PaymentUpload() {
         <p style={{ fontWeight: 700, margin: '1rem 0' }}>Total: {total} ETB</p>
 
         <div className="form-group">
-          <label>Telebirr Reference (optional)</label>
-          <input value={reference} onChange={(e) => setReference(e.target.value)} />
+          <label>Transaction Number (from receipt)</label>
+          <input
+            value={reference}
+            onChange={(e) => setReference(e.target.value)}
+            placeholder="e.g. DG38HZNHRO"
+          />
+          <p style={{ fontSize: '0.85rem', color: 'var(--color-muted)', marginTop: '0.35rem' }}>
+            Find this on your Telebirr receipt under Transaction Number or Invoice No.
+          </p>
         </div>
 
         <div className="form-group">

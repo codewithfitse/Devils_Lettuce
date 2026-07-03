@@ -17,7 +17,7 @@ export default function PaymentVerificationPanel({ payment }) {
   if (v.status === 'pending' || v.status === 'processing') {
     return (
       <div className="payment-verification payment-verification-processing">
-        <strong>Verification:</strong> Scanning screenshot…
+        <strong>Verification:</strong> Checking official Telebirr receipt…
       </div>
     );
   }
@@ -25,7 +25,7 @@ export default function PaymentVerificationPanel({ payment }) {
   if (v.status === 'failed') {
     return (
       <div className="payment-verification payment-verification-failed">
-        <strong>Verification failed:</strong> {v.error || 'Could not scan screenshot'}
+        <strong>Verification failed:</strong> {v.error || 'Could not verify payment'}
         <p style={{ fontSize: '0.85rem', marginTop: '0.35rem', color: 'var(--color-muted)' }}>
           Review the proof image manually below.
         </p>
@@ -46,6 +46,7 @@ export default function PaymentVerificationPanel({ payment }) {
 
   const confidence = v.confidence ?? 0;
   const recClass = RECOMMENDATION_CLASS[v.recommendation] || 'verification-badge-uncertain';
+  const official = v.officialReceipt || {};
 
   return (
     <div className="payment-verification">
@@ -54,7 +55,7 @@ export default function PaymentVerificationPanel({ payment }) {
           {confidence}% — {RECOMMENDATION_LABELS[v.recommendation] || 'Uncertain'}
         </span>
         <span style={{ fontSize: '0.8rem', color: 'var(--color-muted)' }}>
-          Suggestion only — you approve or reject manually
+          Official receipt check — you approve or reject manually
         </span>
       </div>
 
@@ -65,29 +66,50 @@ export default function PaymentVerificationPanel({ payment }) {
         />
       </div>
 
+      {official.transactionId && (
+        <div className="verification-fields" style={{ marginBottom: '0.75rem' }}>
+          <div className="verification-field">
+            <span>Transaction ID</span>
+            <span>
+              {official.receiptUrl ? (
+                <a href={official.receiptUrl} target="_blank" rel="noreferrer">
+                  {official.transactionId}
+                </a>
+              ) : (
+                official.transactionId
+              )}
+            </span>
+          </div>
+          {official.fetchError && (
+            <div className="verification-field">
+              <span>Receipt fetch</span>
+              <span style={{ color: 'var(--color-danger)' }}>{official.fetchError}</span>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="verification-fields">
         <div className="verification-field">
-          <span>Amount</span>
+          <span>Credited name</span>
+          <span>{official.creditedPartyName || '—'}</span>
+        </div>
+        <div className="verification-field">
+          <span>Credited account</span>
+          <span>{official.creditedPartyAccount || '—'}</span>
+        </div>
+        <div className="verification-field">
+          <span>Status</span>
+          <span>{official.transactionStatus || '—'}</span>
+        </div>
+        <div className="verification-field">
+          <span>Settled amount</span>
           <span>
-            OCR: {v.extracted?.amount != null ? `${v.extracted.amount} ETB` : '—'}
+            {official.settledAmount != null ? `${official.settledAmount} ETB` : '—'}
             {' · '}
-            Expected: {payment.totalAmount} ETB
+            Order total: {payment.totalAmount} ETB
           </span>
         </div>
-        <div className="verification-field">
-          <span>Recipient</span>
-          <span>{v.extracted?.recipient || '—'}</span>
-        </div>
-        <div className="verification-field">
-          <span>Reference</span>
-          <span>{v.extracted?.reference || '—'}</span>
-        </div>
-        {v.extracted?.successText && (
-          <div className="verification-field">
-            <span>Success text</span>
-            <span>{v.extracted.successText}</span>
-          </div>
-        )}
       </div>
 
       {v.checks?.length > 0 && (
