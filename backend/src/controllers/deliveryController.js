@@ -21,12 +21,12 @@ export async function getDeliveryZones(req, res) {
     return res.json({ success: true, data: zones });
   }
 
-  const zones = deliveryService.getDeliveryZones();
+  const zones = await deliveryService.getDeliveryZones();
   res.json({ success: true, data: zones });
 }
 
 export async function estimateFee(req, res) {
-  const estimate = deliveryService.estimateDeliveryFee(req.query.zone);
+  const estimate = await deliveryService.estimateDeliveryFee(req.query.zone);
   res.json({ success: true, data: estimate });
 }
 

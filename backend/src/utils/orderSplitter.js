@@ -1,6 +1,7 @@
 import Product from '../models/Product.js';
 import { AppError } from '../middleware/errorHandler.js';
-import { getDeliveryFee, getAllZoneKeys, getZoneName, validateZoneKeys } from './deliveryPricing.js';
+import { getAllZoneKeys, getZoneName, validateZoneKeys } from './deliveryPricing.js';
+import { getFee } from '../services/deliveryPricingService.js';
 
 function assertProductAllowsZone(product, zone) {
   if (!zone) return;
@@ -64,8 +65,8 @@ export async function splitCartByMerchant(cartItems, zone) {
   return Array.from(merchantMap.values());
 }
 
-export function applyDeliveryFee(merchantGroups, zone) {
-  const fee = getDeliveryFee(zone);
+export async function applyDeliveryFee(merchantGroups, zone) {
+  const fee = await getFee(zone);
   return merchantGroups.map((group) => ({
     ...group,
     deliveryFee: fee,

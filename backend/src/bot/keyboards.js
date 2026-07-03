@@ -42,7 +42,7 @@ export function productListKeyboard(products) {
 export function variantKeyboard(product, lang) {
   const buttons = product.variants.map((v) => [
     Markup.button.callback(
-      `${v.quality} - ${v.price} ${t(lang, 'etb')}/${v.unit} (${v.stock})`,
+      `${v.quality} - ${v.price} ${t(lang, 'etb')}/${v.unit}`,
       `variant_${product._id}_${v._id}`
     ),
   ]);

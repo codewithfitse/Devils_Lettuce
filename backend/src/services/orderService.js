@@ -8,7 +8,7 @@ import { notifications } from '../utils/notifications.js';
 
 export async function createOrders({ cartItems, location, phone, notes }, user) {
   const merchantGroups = await splitCartByMerchant(cartItems, location?.zone);
-  const groupsWithFees = applyDeliveryFee(merchantGroups, location?.zone);
+  const groupsWithFees = await applyDeliveryFee(merchantGroups, location?.zone);
 
   const orders = [];
   for (const group of groupsWithFees) {

@@ -1,8 +1,9 @@
 import Order, { ORDER_STATUS } from '../models/Order.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { notifications } from '../utils/notifications.js';
-import { getAvailableZones, getDeliveryFee, intersectProductZones } from '../utils/deliveryPricing.js';
+import { getAllZoneKeys } from '../utils/deliveryPricing.js';
 import Product from '../models/Product.js';
+import * as deliveryPricing from './deliveryPricingService.js';
 
 function isAssignedDeliverer(order, requester) {
   const driverId = order.assignedDriverId?._id?.toString() || order.assignedDriverId?.toString();
@@ -82,11 +83,11 @@ export async function getMyCompletedDeliveries(requester) {
 }
 
 export function getDeliveryZones() {
-  return getAvailableZones();
+  return deliveryPricing.getZones();
 }
 
 export async function getZonesForProducts(productIds) {
-  if (!productIds?.length) return getAvailableZones();
+  if (!productIds?.length) return deliveryPricing.getZones();
 
   const ids = [...new Set(productIds.map(String))];
   const products = await Product.find({
@@ -95,11 +96,18 @@ export async function getZonesForProducts(productIds) {
     isApproved: true,
   });
 
-  return intersectProductZones(products);
+  if (!products.length) return deliveryPricing.getZones();
+
+  const zoneLists = products.map((p) => (p.deliveryZones?.length ? p.deliveryZones : getAllZoneKeys()));
+  const common = zoneLists.reduce((acc, list) => acc.filter((z) => list.includes(z)));
+
+  const zones = await deliveryPricing.getZones();
+  const zoneMap = new Map(zones.map((z) => [z.key, z]));
+  return common.map((k) => zoneMap.get(k)).filter(Boolean);
 }
 
-export function estimateDeliveryFee(zone) {
-  return { zone, fee: getDeliveryFee(zone) };
+export async function estimateDeliveryFee(zone) {
+  return { zone, fee: await deliveryPricing.getFee(zone) };
 }
 
 export async function getMyDeliveries(requester) {
