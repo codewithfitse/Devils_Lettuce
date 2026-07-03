@@ -48,7 +48,7 @@ export default function ProductDetail() {
             >
               {product.variants.map((v) => (
                 <option key={v._id} value={v._id}>
-                  {v.quality} — {v.price} ETB/{v.unit} ({v.stock} in stock)
+                  {v.quality} — {v.price} ETB/{v.unit}
                 </option>
               ))}
             </select>

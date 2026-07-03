@@ -113,6 +113,8 @@ export const deliveryApi = {
     return api.get('/delivery/zones', { params });
   },
   estimate: (zone) => api.get('/delivery/estimate', { params: { zone } }),
+  getPricing: () => api.get('/delivery/pricing'),
+  updatePricing: (zones) => api.put('/delivery/pricing', { zones }),
   getAvailable: () => api.get('/delivery/available'),
   getMine: () => api.get('/delivery/mine'),
   getCompleted: () => api.get('/delivery/completed'),
