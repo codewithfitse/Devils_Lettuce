@@ -6,10 +6,17 @@ const AMOUNT_PATTERNS = [
 
 const PHONE_PATTERN = /(?:\+?251|0)?9\d{8}/g;
 
+/** Telebirr transaction / invoice IDs e.g. DG38HZNHRO */
+const TRANSACTION_ID_PATTERN = /\b([A-Z][A-Z0-9]{9,11})\b/g;
+
+const TRANSACTION_LABEL_PATTERNS = [
+  /transaction\s*number[:\s]*([A-Z0-9]{10,12})/gi,
+  /invoice\s*no\.?[:\s]*([A-Z0-9]{10,12})/gi,
+];
+
 const REFERENCE_PATTERNS = [
   /\b(FT[A-Z0-9]{8,})\b/gi,
-  /\b([A-Z]{2}\d{10,})\b/g,
-  /\b(\d{12,})\b/g,
+  TRANSACTION_ID_PATTERN,
 ];
 
 const SUCCESS_KEYWORDS = [
@@ -31,6 +38,13 @@ function parseNumber(str) {
   return Number.isFinite(n) ? n : null;
 }
 
+function normalizeTransactionId(value) {
+  if (!value || typeof value !== 'string') return null;
+  const normalized = value.trim().toUpperCase().replace(/\s+/g, '');
+  if (!/^[A-Z0-9]{10,12}$/.test(normalized)) return null;
+  return normalized;
+}
+
 function normalizePhone(phone) {
   if (!phone) return null;
   const digits = phone.replace(/\D/g, '');
@@ -44,6 +58,28 @@ function normalizePhone(phone) {
     return digits.slice(0, 10);
   }
   return digits || null;
+}
+
+function extractTransactionIds(text) {
+  const ids = new Set();
+
+  for (const pattern of TRANSACTION_LABEL_PATTERNS) {
+    pattern.lastIndex = 0;
+    let match;
+    while ((match = pattern.exec(text)) !== null) {
+      const id = normalizeTransactionId(match[1]);
+      if (id) ids.add(id);
+    }
+  }
+
+  TRANSACTION_ID_PATTERN.lastIndex = 0;
+  let match;
+  while ((match = TRANSACTION_ID_PATTERN.exec(text)) !== null) {
+    const id = normalizeTransactionId(match[1]);
+    if (id) ids.add(id);
+  }
+
+  return [...ids];
 }
 
 function extractAmounts(text) {
@@ -119,23 +155,38 @@ function pickReference(refs, userReference) {
   return exact || refs[0];
 }
 
+/**
+ * Resolve Telebirr transaction ID: user input first, then OCR.
+ */
+export function resolveTransactionId(userReference, ocrText) {
+  const fromUser = normalizeTransactionId(userReference);
+  if (fromUser) return fromUser;
+
+  const fromOcr = extractTransactionIds(ocrText || '');
+  return fromOcr[0] || null;
+}
+
 export function parseTelebirrText(rawText, { expectedAmount, expectedAccount, userReference } = {}) {
   const text = rawText || '';
   const amounts = extractAmounts(text);
   const phones = extractPhones(text);
+  const transactionIds = extractTransactionIds(text);
   const refs = extractReferences(text);
   const successText = extractSuccessText(text);
+  const transactionId = resolveTransactionId(userReference, text);
 
   return {
     amount: pickBestAmount(amounts, expectedAmount),
     recipient: pickRecipient(phones, expectedAccount),
-    reference: pickReference(refs, userReference),
+    reference: transactionId || pickReference(refs, userReference),
+    transactionId,
     successText,
     amounts,
     phones,
     references: refs,
+    transactionIds,
     rawText: text.slice(0, 4000),
   };
 }
 
-export { normalizePhone };
+export { normalizePhone, normalizeTransactionId, extractTransactionIds };

@@ -101,21 +101,28 @@ function formatPaymentVerificationAlert(payment) {
     );
   }
 
-  const failedChecks = (v.checks || []).filter((c) => !c.passed).slice(0, 3);
+  const failedChecks = (v.checks || []).filter((c) => !c.passed).slice(0, 4);
+  const official = v.officialReceipt || {};
   let text =
-    `🔍 <b>Payment Scan Complete</b> #${paymentRef}\n\n` +
+    `🔍 <b>Official Receipt Check</b> #${paymentRef}\n\n` +
     `<b>Confidence:</b> ${v.confidence ?? 0}% — ${formatVerificationRecommendation(v.recommendation)}\n` +
     `<b>Customer:</b> ${customerName}\n` +
-    `<b>Amount:</b> ${payment.totalAmount} ETB`;
+    `<b>Order total:</b> ${payment.totalAmount} ETB`;
 
-  if (v.extracted?.amount != null) {
-    text += `\n<b>OCR amount:</b> ${v.extracted.amount} ETB`;
+  if (official.transactionId) {
+    text += `\n<b>Transaction:</b> ${official.transactionId}`;
+    if (official.receiptUrl) {
+      text += `\n<b>Receipt:</b> ${official.receiptUrl}`;
+    }
   }
-  if (v.extracted?.recipient) {
-    text += `\n<b>OCR recipient:</b> ${v.extracted.recipient}`;
+  if (official.settledAmount != null) {
+    text += `\n<b>Settled:</b> ${official.settledAmount} ETB`;
   }
-  if (v.extracted?.reference) {
-    text += `\n<b>OCR reference:</b> ${v.extracted.reference}`;
+  if (official.transactionStatus) {
+    text += `\n<b>Status:</b> ${official.transactionStatus}`;
+  }
+  if (official.creditedPartyName) {
+    text += `\n<b>Credited to:</b> ${official.creditedPartyName}`;
   }
 
   if (failedChecks.length) {
@@ -123,6 +130,10 @@ function formatPaymentVerificationAlert(payment) {
     for (const check of failedChecks) {
       text += `\n• ${check.label}`;
     }
+  }
+
+  if (official.fetchError) {
+    text += `\n\n⚠️ ${official.fetchError}`;
   }
 
   text += `\n\nYou decide — open Admin → Payments to approve or reject.`;

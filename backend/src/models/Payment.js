@@ -55,6 +55,18 @@ const verificationSchema = new mongoose.Schema(
     processedAt: { type: Date },
     error: { type: String },
     duplicateViolation: { type: Boolean, default: false },
+    officialReceipt: {
+      transactionId: { type: String },
+      receiptUrl: { type: String },
+      creditedPartyName: { type: String },
+      creditedPartyAccount: { type: String },
+      transactionStatus: { type: String },
+      settledAmount: { type: Number },
+      invoiceNo: { type: String },
+      fetchedAt: { type: Date },
+      fetchError: { type: String },
+      httpStatus: { type: Number },
+    },
   },
   { _id: false }
 );

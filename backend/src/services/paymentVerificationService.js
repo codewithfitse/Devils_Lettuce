@@ -1,16 +1,17 @@
 import axios from 'axios';
 import sharp from 'sharp';
 import { createWorker } from 'tesseract.js';
-import Payment, { VERIFICATION_STATUS } from '../models/Payment.js';
+import Payment, { VERIFICATION_STATUS, VERIFICATION_RECOMMENDATION } from '../models/Payment.js';
 import env from '../config/env.js';
-import { parseTelebirrText } from '../utils/telebirrParser.js';
-import { scorePaymentVerification } from '../utils/paymentScoring.js';
+import { resolveTransactionId } from '../utils/telebirrParser.js';
+import { scoreOfficialReceipt } from '../utils/officialReceiptScoring.js';
+import { fetchOfficialReceipt } from '../services/telebirrReceiptService.js';
 import { notifications } from '../utils/notifications.js';
 import {
   assertTransactionAvailable,
   findPaymentUsingTransaction,
   hashProofBuffer,
-  resolveTransactionKey,
+  normalizeTransactionRef,
 } from '../utils/transactionDuplicate.js';
 import { rejectPaymentForDuplicate } from './paymentViolationService.js';
 
@@ -49,14 +50,7 @@ async function preprocessImage(buffer) {
 async function runOcr(imageBuffer) {
   const worker = await getWorker();
   const { data } = await worker.recognize(imageBuffer);
-  return {
-    text: data.text || '',
-    confidence: data.confidence ?? 0,
-  };
-}
-
-async function findDuplicateReference(reference, paymentId) {
-  return findPaymentUsingTransaction(reference, paymentId);
+  return data.text || '';
 }
 
 export async function processPaymentVerification(paymentId) {
@@ -93,16 +87,37 @@ export async function processPaymentVerification(paymentId) {
     }
 
     const preprocessed = await preprocessImage(imageBuffer);
-    const { text, confidence: ocrConfidence } = await runOcr(preprocessed);
+    const ocrText = await runOcr(preprocessed);
+    const transactionId = resolveTransactionId(payment.telebirrReference, ocrText);
 
-    const extracted = parseTelebirrText(text, {
-      expectedAmount: payment.totalAmount,
-      expectedAccount: env.telebirrAccount,
-      userReference: payment.telebirrReference,
-    });
+    if (!transactionId) {
+      payment.verification = {
+        status: VERIFICATION_STATUS.COMPLETED,
+        confidence: 0,
+        recommendation: VERIFICATION_RECOMMENDATION.UNCERTAIN,
+        error: 'Could not read Transaction Number from screenshot. Ask user to enter it.',
+        extracted: { rawText: ocrText.slice(0, 4000), reference: null },
+        checks: [{
+          id: 'transaction_id',
+          label: 'Transaction Number found',
+          passed: false,
+          points: 0,
+          maxPoints: 10,
+          detail: 'Enter Transaction Number on upload (e.g. DG38HZNHRO)',
+        }],
+        processedAt: new Date(),
+      };
+      await payment.save();
+      await notifications.paymentVerificationComplete(
+        await payment.populate([
+          { path: 'userId', select: 'name phone' },
+          { path: 'orderIds', populate: { path: 'merchantId', select: 'name telegramId' } },
+        ])
+      );
+      return;
+    }
 
-    const duplicateRef = await findDuplicateReference(extracted.reference, payment._id);
-
+    const duplicateRef = await findPaymentUsingTransaction(transactionId, payment._id);
     if (duplicateRef) {
       await rejectPaymentForDuplicate(payment, {
         reason:
@@ -113,22 +128,14 @@ export async function processPaymentVerification(paymentId) {
       return;
     }
 
-    const transactionKey = resolveTransactionKey(
-      payment.telebirrReference,
-      extracted.reference
-    );
-    if (transactionKey) {
-      payment.transactionKey = transactionKey;
-    }
+    payment.transactionKey = normalizeTransactionRef(transactionId);
+    const receipt = await fetchOfficialReceipt(transactionId);
 
-    const { confidence, recommendation, checks } = scorePaymentVerification({
-      extracted,
+    const { confidence, recommendation, checks } = scoreOfficialReceipt({
+      receipt,
       expectedAmount: payment.totalAmount,
       expectedAccount: env.telebirrAccount,
-      userReference: payment.telebirrReference,
-      paymentId: payment._id,
-      duplicateRef,
-      ocrConfidence,
+      expectedName: env.telebirrRecipientName,
     });
 
     payment.verification = {
@@ -137,11 +144,20 @@ export async function processPaymentVerification(paymentId) {
       recommendation,
       duplicateViolation: false,
       extracted: {
-        amount: extracted.amount,
-        recipient: extracted.recipient,
-        reference: extracted.reference,
-        successText: extracted.successText,
-        rawText: extracted.rawText,
+        reference: transactionId,
+        rawText: ocrText.slice(0, 4000),
+      },
+      officialReceipt: {
+        transactionId,
+        receiptUrl: receipt.receiptUrl,
+        creditedPartyName: receipt.creditedPartyName || null,
+        creditedPartyAccount: receipt.creditedPartyAccount || null,
+        transactionStatus: receipt.transactionStatus || null,
+        settledAmount: receipt.settledAmount ?? null,
+        invoiceNo: receipt.invoiceNo || null,
+        fetchedAt: receipt.fetchedAt || new Date(),
+        fetchError: receipt.fetchError || null,
+        httpStatus: receipt.httpStatus || null,
       },
       checks,
       processedAt: new Date(),

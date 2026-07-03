@@ -31,6 +31,7 @@ export async function findPaymentUsingTransaction(transactionKey, excludePayment
       { transactionKey: transactionKey },
       { telebirrReference: pattern },
       { 'verification.extracted.reference': pattern },
+      { 'verification.officialReceipt.transactionId': pattern },
     ],
   };
 
