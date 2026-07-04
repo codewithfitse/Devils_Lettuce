@@ -84,6 +84,7 @@ export default {
     process.env.TELEBIRR_RECEIPT_BASE_URL || 'https://transactioninfo.ethiotelecom.et/receipt',
   telebirrReceiptFetchTimeoutMs:
     parseInt(process.env.TELEBIRR_RECEIPT_FETCH_TIMEOUT_MS, 10) || 45000,
+  telebirrReceiptProxyUrl: process.env.TELEBIRR_RECEIPT_PROXY_URL || '',
   paymentVerifyEnabled: process.env.PAYMENT_VERIFY_ENABLED !== 'false',
   paymentAutoApproveEnabled: process.env.PAYMENT_AUTO_APPROVE_ENABLED !== 'false',
   paymentAutoApproveMinConfidence:

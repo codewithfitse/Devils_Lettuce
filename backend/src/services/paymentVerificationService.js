@@ -89,7 +89,9 @@ export async function processPaymentVerification(paymentId) {
     const preprocessed = await preprocessImage(imageBuffer);
     const userTransactionId = resolveTransactionId(payment.telebirrReference, '');
     const receiptFetchPromise = userTransactionId
-      ? fetchOfficialReceipt(userTransactionId)
+      ? fetchOfficialReceipt(userTransactionId, {
+          receiptPdfUrl: payment.officialReceiptPdf,
+        })
       : null;
 
     const ocrText = await runOcr(preprocessed);
@@ -137,7 +139,9 @@ export async function processPaymentVerification(paymentId) {
     const receipt =
       receiptFetchPromise && transactionId === userTransactionId
         ? await receiptFetchPromise
-        : await fetchOfficialReceipt(transactionId);
+        : await fetchOfficialReceipt(transactionId, {
+            receiptPdfUrl: payment.officialReceiptPdf,
+          });
 
     const { confidence, recommendation, checks } = scoreOfficialReceipt({
       receipt,
@@ -166,6 +170,7 @@ export async function processPaymentVerification(paymentId) {
         fetchedAt: receipt.fetchedAt || new Date(),
         fetchError: receipt.fetchError || null,
         httpStatus: receipt.httpStatus || null,
+        source: receipt.source || null,
       },
       checks,
       processedAt: new Date(),

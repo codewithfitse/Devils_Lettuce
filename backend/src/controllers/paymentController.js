@@ -1,13 +1,21 @@
 import * as paymentService from '../services/paymentService.js';
-import { uploadImage as uploadToCloudinary } from '../services/cloudinaryService.js';
+import { uploadImage, uploadDocument } from '../services/cloudinaryService.js';
 
 export async function createPayment(req, res) {
+  const proofFile = req.files?.proof?.[0];
+  const receiptPdfFile = req.files?.receiptPdf?.[0];
+
   let proofUrl = req.body.proof;
-  if (req.file) {
-    proofUrl = await uploadToCloudinary(req.file);
+  if (proofFile) {
+    proofUrl = await uploadImage(proofFile);
   }
   if (!proofUrl) {
     return res.status(400).json({ success: false, message: 'Payment proof required' });
+  }
+
+  let officialReceiptPdf = null;
+  if (receiptPdfFile) {
+    officialReceiptPdf = await uploadDocument(receiptPdfFile);
   }
 
   let orderIds = req.body.orderIds;
@@ -20,10 +28,10 @@ export async function createPayment(req, res) {
   }
 
   const payment = await paymentService.createPayment(
-    { ...req.body, orderIds },
+    { ...req.body, orderIds, officialReceiptPdf },
     req.user,
     proofUrl,
-    req.file?.buffer || null
+    proofFile?.buffer || null
   );
   res.status(201).json({ success: true, data: payment });
 }

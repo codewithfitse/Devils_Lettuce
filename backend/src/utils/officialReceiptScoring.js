@@ -24,7 +24,9 @@ function checkReceiptLink(receipt) {
     points: passed ? maxPoints : 0,
     maxPoints,
     detail: passed
-      ? `Verified via ${receipt.receiptUrl}`
+      ? receipt.source === 'pdf'
+        ? 'Verified via uploaded official receipt PDF'
+        : `Verified via ${receipt.receiptUrl}`
       : receipt?.fetchError || 'Could not load official receipt',
   };
 }

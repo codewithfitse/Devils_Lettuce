@@ -2,7 +2,7 @@ import axios from 'axios';
 import * as cheerio from 'cheerio';
 import env from '../config/env.js';
 
-const FETCH_TIMEOUT_MS = parseInt(process.env.TELEBIRR_RECEIPT_FETCH_TIMEOUT_MS, 10) || 45000;
+const FETCH_TIMEOUT_MS = env.telebirrReceiptFetchTimeoutMs || 45000;
 const RETRY_COUNT = 3;
 const RETRY_DELAY_MS = 5000;
 
@@ -13,12 +13,12 @@ function formatFetchError(message) {
   const text = String(message || 'Failed to fetch receipt');
   if (/timeout|ETIMEDOUT|ECONNABORTED/i.test(text)) {
     return (
-      'Ethio Telecom receipt site timed out. The site is often slow from overseas servers (e.g. Render). ' +
-      'Payment stays pending for manual review — you can verify the receipt link yourself.'
+      'Ethio Telecom receipt site timed out from this server. Upload the official PDF from the receipt page ' +
+      '(Download PDF button) as a fallback, or verify the link manually.'
     );
   }
   if (/ENOTFOUND|ECONNREFUSED|ENETUNREACH/i.test(text)) {
-    return 'Could not reach Ethio Telecom receipt site. Payment stays pending for manual review.';
+    return 'Could not reach Ethio Telecom receipt site. Upload the official PDF or verify manually.';
   }
   return text;
 }
@@ -53,13 +53,53 @@ function findByLabel(text, labels) {
   return null;
 }
 
-/**
- * Parse official Telebirr receipt HTML into structured fields.
- */
-export function parseReceiptHtml(html, transactionId) {
-  const $ = cheerio.load(html);
-  const bodyText = $('body').text().replace(/\s+/g, ' ').trim();
+function labelIncludes(label, needles) {
+  const normalized = String(label || '').toLowerCase();
+  return needles.some((needle) => normalized.includes(needle.toLowerCase()));
+}
 
+function parseTableFields($) {
+  const fields = {};
+
+  $('table tr').each((_, row) => {
+    const cells = $(row)
+      .find('td')
+      .map((__, cell) => cleanText($(cell).text()))
+      .get()
+      .filter(Boolean);
+
+    if (cells.length === 2) {
+      const [label, value] = cells;
+      if (labelIncludes(label, ['credited party name'])) {
+        fields.creditedPartyName = value;
+      } else if (labelIncludes(label, ['credited party account'])) {
+        fields.creditedPartyAccount = value;
+      } else if (labelIncludes(label, ['transaction status'])) {
+        fields.transactionStatus = value;
+      }
+    }
+
+    if (cells.length === 3) {
+      const [first, , third] = cells;
+      if (labelIncludes(first, ['invoice no']) && labelIncludes(cells[1], ['payment date'])) {
+        return;
+      }
+      const idMatch = first?.match(/^[A-Z][A-Z0-9]{9,11}$/);
+      const amountMatch = third?.match(/^([\d.]+)\s*Birr?$/i);
+      if (idMatch && amountMatch) {
+        fields.invoiceNo = idMatch[0];
+        fields.settledAmount = parseAmount(amountMatch[1]);
+      }
+    }
+  });
+
+  return fields;
+}
+
+/**
+ * Parse receipt fields from flattened text (HTML body or PDF text).
+ */
+export function parseReceiptText(bodyText, transactionId) {
   const fields = {};
 
   const nameBlockMatch = bodyText.match(
@@ -121,34 +161,89 @@ export function parseReceiptHtml(html, transactionId) {
   };
 }
 
+/**
+ * Parse official Telebirr receipt HTML into structured fields.
+ */
+export function parseReceiptHtml(html, transactionId) {
+  const $ = cheerio.load(html);
+  const tableFields = parseTableFields($);
+  const bodyText = $('body').text().replace(/\s+/g, ' ').trim();
+  const textFields = parseReceiptText(bodyText, transactionId);
+
+  return {
+    creditedPartyName: tableFields.creditedPartyName || textFields.creditedPartyName,
+    creditedPartyAccount: tableFields.creditedPartyAccount || textFields.creditedPartyAccount,
+    transactionStatus: tableFields.transactionStatus || textFields.transactionStatus,
+    settledAmount: tableFields.settledAmount ?? textFields.settledAmount,
+    invoiceNo: tableFields.invoiceNo || textFields.invoiceNo,
+    debugSnippet: textFields.debugSnippet,
+  };
+}
+
+export async function parseReceiptPdf(buffer, transactionId) {
+  const pdfParse = (await import('pdf-parse')).default;
+  const { text } = await pdfParse(buffer);
+  return parseReceiptText(String(text || '').replace(/\s+/g, ' ').trim(), transactionId);
+}
+
+function hasParsedData(parsed) {
+  return Boolean(
+    parsed?.creditedPartyName ||
+      parsed?.creditedPartyAccount ||
+      parsed?.transactionStatus ||
+      parsed?.settledAmount != null
+  );
+}
+
+function buildAxiosConfig() {
+  const config = {
+    timeout: FETCH_TIMEOUT_MS,
+    headers: {
+      'User-Agent': USER_AGENT,
+      Accept: 'text/html,application/xhtml+xml,application/pdf;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.9',
+    },
+    validateStatus: (status) => status < 500,
+    maxRedirects: 5,
+  };
+
+  if (env.telebirrReceiptProxyUrl) {
+    try {
+      const proxyUrl = new URL(env.telebirrReceiptProxyUrl);
+      config.proxy = {
+        protocol: proxyUrl.protocol.replace(':', ''),
+        host: proxyUrl.hostname,
+        port: Number(proxyUrl.port) || (proxyUrl.protocol === 'https:' ? 443 : 80),
+        auth:
+          proxyUrl.username || proxyUrl.password
+            ? {
+                username: decodeURIComponent(proxyUrl.username),
+                password: decodeURIComponent(proxyUrl.password),
+              }
+            : undefined,
+      };
+    } catch {
+      console.warn('Invalid TELEBIRR_RECEIPT_PROXY_URL — ignoring');
+    }
+  }
+
+  return config;
+}
+
 export function buildReceiptUrl(transactionId) {
   const base = env.telebirrReceiptBaseUrl.replace(/\/$/, '');
   return `${base}/${encodeURIComponent(transactionId)}`;
 }
 
-export async function fetchOfficialReceipt(transactionId) {
-  const receiptUrl = buildReceiptUrl(transactionId);
+async function fetchReceiptHtml(receiptUrl) {
   let lastError = null;
 
   for (let attempt = 1; attempt <= RETRY_COUNT; attempt += 1) {
     try {
-      const response = await axios.get(receiptUrl, {
-        timeout: FETCH_TIMEOUT_MS,
-        headers: {
-          'User-Agent': USER_AGENT,
-          Accept: 'text/html,application/xhtml+xml',
-        },
-        validateStatus: (status) => status < 500,
-      });
+      const response = await axios.get(receiptUrl, buildAxiosConfig());
 
       if (response.status === 404) {
-        return {
-          ok: false,
-          receiptUrl,
-          transactionId,
-          fetchError: 'Receipt not found (404)',
-          httpStatus: 404,
-        };
+        return { ok: false, httpStatus: 404, error: 'Receipt not found (404)' };
       }
 
       if (response.status !== 200 || !response.data) {
@@ -157,42 +252,133 @@ export async function fetchOfficialReceipt(transactionId) {
         continue;
       }
 
-      const parsed = parseReceiptHtml(String(response.data), transactionId);
-      const hasData =
-        parsed.creditedPartyName ||
-        parsed.creditedPartyAccount ||
-        parsed.transactionStatus ||
-        parsed.settledAmount != null;
-
-      if (!hasData) {
-        return {
-          ok: false,
-          receiptUrl,
-          transactionId,
-          fetchError: 'Receipt page loaded but could not parse fields',
-          httpStatus: response.status,
-          parsed,
-        };
-      }
-
-      return {
-        ok: true,
-        receiptUrl,
-        transactionId,
-        httpStatus: response.status,
-        fetchedAt: new Date(),
-        ...parsed,
-      };
+      return { ok: true, html: String(response.data), httpStatus: response.status };
     } catch (error) {
       lastError = error.message || 'Network error';
       if (attempt < RETRY_COUNT) await sleep(RETRY_DELAY_MS);
     }
   }
 
+  return { ok: false, error: formatFetchError(lastError) };
+}
+
+async function downloadPdfBuffer(pdfUrl) {
+  const baseConfig = buildAxiosConfig();
+  const response = await axios.get(pdfUrl, {
+    ...baseConfig,
+    responseType: 'arraybuffer',
+    headers: {
+      ...baseConfig.headers,
+      Accept: 'application/pdf,*/*',
+    },
+  });
+  if (response.status !== 200 || !response.data) {
+    throw new Error(`Could not download receipt PDF (HTTP ${response.status})`);
+  }
+  return Buffer.from(response.data);
+}
+
+function buildSuccessResult({ receiptUrl, transactionId, parsed, source, httpStatus }) {
+  return {
+    ok: true,
+    receiptUrl,
+    transactionId,
+    httpStatus: httpStatus || null,
+    fetchedAt: new Date(),
+    source,
+    ...parsed,
+  };
+}
+
+function buildFailureResult({ receiptUrl, transactionId, fetchError, parsed, httpStatus }) {
   return {
     ok: false,
     receiptUrl,
     transactionId,
-    fetchError: formatFetchError(lastError),
+    fetchError,
+    httpStatus: httpStatus || null,
+    ...(parsed || {}),
   };
+}
+
+/**
+ * Fetch and parse official receipt. Falls back to user-uploaded PDF when HTML fetch fails.
+ */
+export async function fetchOfficialReceipt(transactionId, { receiptPdfUrl, receiptPdfBuffer } = {}) {
+  const receiptUrl = buildReceiptUrl(transactionId);
+
+  const htmlResult = await fetchReceiptHtml(receiptUrl);
+  if (htmlResult.ok) {
+    const parsed = parseReceiptHtml(htmlResult.html, transactionId);
+    if (hasParsedData(parsed)) {
+      return buildSuccessResult({
+        receiptUrl,
+        transactionId,
+        parsed,
+        source: 'html',
+        httpStatus: htmlResult.httpStatus,
+      });
+    }
+    return buildFailureResult({
+      receiptUrl,
+      transactionId,
+      fetchError: 'Receipt page loaded but could not parse fields',
+      parsed,
+      httpStatus: htmlResult.httpStatus,
+    });
+  }
+
+  if (htmlResult.httpStatus === 404) {
+    return buildFailureResult({
+      receiptUrl,
+      transactionId,
+      fetchError: 'Receipt not found (404)',
+      httpStatus: 404,
+    });
+  }
+
+  let pdfBuffer = receiptPdfBuffer || null;
+  if (!pdfBuffer && receiptPdfUrl) {
+    try {
+      pdfBuffer = await downloadPdfBuffer(receiptPdfUrl);
+    } catch (error) {
+      return buildFailureResult({
+        receiptUrl,
+        transactionId,
+        fetchError: `${htmlResult.error} PDF fallback also failed: ${error.message}`,
+      });
+    }
+  }
+
+  if (pdfBuffer) {
+    try {
+      const parsed = await parseReceiptPdf(pdfBuffer, transactionId);
+      if (hasParsedData(parsed)) {
+        return buildSuccessResult({
+          receiptUrl,
+          transactionId,
+          parsed,
+          source: 'pdf',
+        });
+      }
+      return buildFailureResult({
+        receiptUrl,
+        transactionId,
+        fetchError: 'Receipt PDF uploaded but could not parse fields',
+        parsed,
+      });
+    } catch (error) {
+      return buildFailureResult({
+        receiptUrl,
+        transactionId,
+        fetchError: `${htmlResult.error} PDF parse failed: ${error.message}`,
+      });
+    }
+  }
+
+  return buildFailureResult({
+    receiptUrl,
+    transactionId,
+    fetchError: htmlResult.error,
+  });
 }

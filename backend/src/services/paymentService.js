@@ -29,7 +29,7 @@ async function resolveProofHash(proofUrl, proofBuffer) {
 }
 
 export async function createPayment(
-  { orderIds, telebirrReference },
+  { orderIds, telebirrReference, officialReceiptPdf },
   user,
   proofUrl,
   proofBuffer = null
@@ -72,6 +72,7 @@ export async function createPayment(
     orderIds: orders.map((o) => o._id),
     totalAmount,
     proof: proofUrl,
+    officialReceiptPdf,
     proofHash,
     telebirrReference,
     transactionKey,

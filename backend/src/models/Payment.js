@@ -66,6 +66,7 @@ const verificationSchema = new mongoose.Schema(
       fetchedAt: { type: Date },
       fetchError: { type: String },
       httpStatus: { type: Number },
+      source: { type: String, enum: ['html', 'pdf'] },
     },
   },
   { _id: false }
@@ -77,6 +78,7 @@ const paymentSchema = new mongoose.Schema(
     orderIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Order' }],
     totalAmount: { type: Number, required: true, min: 0 },
     proof: { type: String },
+    officialReceiptPdf: { type: String },
     status: {
       type: String,
       enum: Object.values(PAYMENT_STATUS),
