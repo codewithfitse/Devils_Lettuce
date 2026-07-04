@@ -1,8 +1,9 @@
-import Payment, { PAYMENT_STATUS } from '../models/Payment.js';
+import Payment, { PAYMENT_STATUS, VERIFICATION_RECOMMENDATION } from '../models/Payment.js';
+import env from '../config/env.js';
 import Order, { ORDER_STATUS } from '../models/Order.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { notifications } from '../utils/notifications.js';
-import { deductStockForOrder } from './orderService.js';
+import { deductStockForOrder, releasePaidOrderToDrivers } from './orderService.js';
 import { schedulePaymentVerification } from './paymentVerificationService.js';
 import {
   assertTransactionAvailable,
@@ -129,13 +130,7 @@ export async function getPaymentById(id, requester) {
   return payment;
 }
 
-export async function approvePayment(id, requester) {
-  if (!requester.isSuperAdmin()) {
-    throw new AppError('Only super admin can approve payments', 403);
-  }
-
-  const payment = await Payment.findById(id).populate('userId', 'name telegramId');
-  if (!payment) throw new AppError('Payment not found', 404);
+async function finalizePaymentApproval(payment, { autoApproved = false, reviewerId = null } = {}) {
   if (payment.status !== PAYMENT_STATUS.PENDING) {
     throw new AppError(`Payment is already ${payment.status}`, 400);
   }
@@ -165,8 +160,9 @@ export async function approvePayment(id, requester) {
   }
 
   payment.status = PAYMENT_STATUS.APPROVED;
-  payment.reviewedBy = requester._id;
   payment.reviewedAt = new Date();
+  payment.autoApproved = autoApproved;
+  payment.reviewedBy = reviewerId || undefined;
   await payment.save();
 
   const orders = await Order.find({ _id: { $in: payment.orderIds } });
@@ -176,8 +172,52 @@ export async function approvePayment(id, requester) {
     await deductStockForOrder(order);
   }
 
+  if (autoApproved && env.paymentAutoReleaseEnabled) {
+    for (const order of orders) {
+      try {
+        await releasePaidOrderToDrivers(order._id, order.merchantId);
+      } catch (error) {
+        console.error('Auto-release to drivers failed:', order._id, error.message);
+      }
+    }
+  }
+
   await notifications.paymentApproved(payment.userId, payment);
   return payment;
+}
+
+export function shouldAutoApprovePayment({ confidence, recommendation }) {
+  if (!env.paymentAutoApproveEnabled) return false;
+  return (
+    recommendation === VERIFICATION_RECOMMENDATION.LIKELY_REAL &&
+    confidence >= env.paymentAutoApproveMinConfidence
+  );
+}
+
+export async function tryAutoApprovePayment(paymentId) {
+  const payment = await Payment.findById(paymentId).populate('userId', 'name telegramId');
+  if (!payment) return null;
+
+  const { confidence, recommendation } = payment.verification || {};
+  if (!shouldAutoApprovePayment({ confidence, recommendation })) return null;
+
+  try {
+    return await finalizePaymentApproval(payment, { autoApproved: true });
+  } catch (error) {
+    console.error('Auto-approve failed:', paymentId, error.message);
+    return null;
+  }
+}
+
+export async function approvePayment(id, requester) {
+  if (!requester.isSuperAdmin()) {
+    throw new AppError('Only super admin can approve payments', 403);
+  }
+
+  const payment = await Payment.findById(id).populate('userId', 'name telegramId');
+  if (!payment) throw new AppError('Payment not found', 404);
+
+  return finalizePaymentApproval(payment, { reviewerId: requester._id });
 }
 
 export async function rejectPayment(id, requester, reason) {

@@ -87,6 +87,11 @@ export async function processPaymentVerification(paymentId) {
     }
 
     const preprocessed = await preprocessImage(imageBuffer);
+    const userTransactionId = resolveTransactionId(payment.telebirrReference, '');
+    const receiptFetchPromise = userTransactionId
+      ? fetchOfficialReceipt(userTransactionId)
+      : null;
+
     const ocrText = await runOcr(preprocessed);
     const transactionId = resolveTransactionId(payment.telebirrReference, ocrText);
 
@@ -129,7 +134,10 @@ export async function processPaymentVerification(paymentId) {
     }
 
     payment.transactionKey = normalizeTransactionRef(transactionId);
-    const receipt = await fetchOfficialReceipt(transactionId);
+    const receipt =
+      receiptFetchPromise && transactionId === userTransactionId
+        ? await receiptFetchPromise
+        : await fetchOfficialReceipt(transactionId);
 
     const { confidence, recommendation, checks } = scoreOfficialReceipt({
       receipt,
@@ -164,8 +172,11 @@ export async function processPaymentVerification(paymentId) {
     };
     await payment.save();
 
+    const { tryAutoApprovePayment } = await import('./paymentService.js');
+    await tryAutoApprovePayment(paymentId);
+
     await notifications.paymentVerificationComplete(
-      await payment.populate([
+      await Payment.findById(paymentId).populate([
         { path: 'userId', select: 'name phone' },
         { path: 'orderIds', populate: { path: 'merchantId', select: 'name telegramId' } },
       ])

@@ -178,27 +178,36 @@ export async function assignDriver(orderId, driverId, requester) {
   return populated.populate('assignedDriverId', 'name phone');
 }
 
-export async function makeAvailableForDelivery(orderId, requester) {
+export async function releasePaidOrderToDrivers(orderId, releasedById = null) {
   const order = await Order.findById(orderId)
     .populate('userId', 'name telegramId')
     .populate('merchantId', 'name');
   if (!order) throw new AppError('Order not found', 404);
-
-  assertMerchantOwnership(order, requester, 'You can only release your own orders to drivers');
   if (order.status !== ORDER_STATUS.PAID) {
     throw new AppError('Only paid orders can be released to drivers', 400);
   }
   if (order.assignedDriverId) {
-    throw new AppError('Order already has a driver assigned', 400);
+    return order;
   }
 
   order.status = ORDER_STATUS.AVAILABLE_FOR_DELIVERY;
-  order.madeAvailableBy = requester._id;
+  order.madeAvailableBy = releasedById || order.merchantId;
   order.madeAvailableAt = new Date();
   await order.save();
 
   await notifications.orderAvailableForDrivers(order);
   return order;
+}
+
+export async function makeAvailableForDelivery(orderId, requester) {
+  const order = await Order.findById(orderId);
+  if (!order) throw new AppError('Order not found', 404);
+
+  assertMerchantOwnership(order, requester, 'You can only release your own orders to drivers');
+  if (order.assignedDriverId) {
+    throw new AppError('Order already has a driver assigned', 400);
+  }
+  return releasePaidOrderToDrivers(orderId, requester._id);
 }
 
 export async function claimOrder(orderId, driver) {

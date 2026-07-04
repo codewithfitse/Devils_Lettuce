@@ -2,12 +2,26 @@ import axios from 'axios';
 import * as cheerio from 'cheerio';
 import env from '../config/env.js';
 
-const FETCH_TIMEOUT_MS = 15000;
+const FETCH_TIMEOUT_MS = parseInt(process.env.TELEBIRR_RECEIPT_FETCH_TIMEOUT_MS, 10) || 45000;
 const RETRY_COUNT = 3;
 const RETRY_DELAY_MS = 5000;
 
 const USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+
+function formatFetchError(message) {
+  const text = String(message || 'Failed to fetch receipt');
+  if (/timeout|ETIMEDOUT|ECONNABORTED/i.test(text)) {
+    return (
+      'Ethio Telecom receipt site timed out. The site is often slow from overseas servers (e.g. Render). ' +
+      'Payment stays pending for manual review — you can verify the receipt link yourself.'
+    );
+  }
+  if (/ENOTFOUND|ECONNREFUSED|ENETUNREACH/i.test(text)) {
+    return 'Could not reach Ethio Telecom receipt site. Payment stays pending for manual review.';
+  }
+  return text;
+}
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -179,6 +193,6 @@ export async function fetchOfficialReceipt(transactionId) {
     ok: false,
     receiptUrl,
     transactionId,
-    fetchError: lastError || 'Failed to fetch receipt',
+    fetchError: formatFetchError(lastError),
   };
 }

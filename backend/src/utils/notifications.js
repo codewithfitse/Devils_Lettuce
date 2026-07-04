@@ -136,7 +136,11 @@ function formatPaymentVerificationAlert(payment) {
     text += `\n\n⚠️ ${official.fetchError}`;
   }
 
-  text += `\n\nYou decide — open Admin → Payments to approve or reject.`;
+  if (payment.status === 'approved' && payment.autoApproved) {
+    text += `\n\n✅ <b>Auto-approved</b> — official receipt passed at ${v.confidence ?? 0}%. Orders released to drivers.`;
+  } else {
+    text += `\n\nYou decide — open Admin → Payments to approve or reject.`;
+  }
   return text;
 }
 
@@ -291,11 +295,14 @@ export const notifications = {
 
   async paymentApproved(user, payment) {
     if (!user.telegramId) return;
+    const deliveryNote = payment.autoApproved
+      ? 'Your order is now available for delivery — a driver will claim it soon.'
+      : 'Your order is being prepared for delivery.';
     await sendTelegramMessage(
       user.telegramId,
       `✅ <b>Payment Approved!</b>\n` +
         `Your payment of ${payment.totalAmount} ETB has been confirmed.\n` +
-        `Your order is being prepared for delivery.`
+        deliveryNote
     );
   },
 

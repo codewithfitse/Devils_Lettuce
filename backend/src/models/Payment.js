@@ -85,6 +85,7 @@ const paymentSchema = new mongoose.Schema(
     expiresAt: { type: Date, required: true },
     reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     reviewedAt: { type: Date },
+    autoApproved: { type: Boolean, default: false },
     rejectionReason: { type: String },
     telebirrReference: { type: String },
     transactionKey: { type: String, trim: true },

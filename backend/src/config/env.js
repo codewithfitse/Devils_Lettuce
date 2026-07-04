@@ -82,6 +82,12 @@ export default {
   telebirrRecipientName: process.env.TELEBIRR_RECIPIENT_NAME || 'Fitsum Zerihun Tadesse',
   telebirrReceiptBaseUrl:
     process.env.TELEBIRR_RECEIPT_BASE_URL || 'https://transactioninfo.ethiotelecom.et/receipt',
+  telebirrReceiptFetchTimeoutMs:
+    parseInt(process.env.TELEBIRR_RECEIPT_FETCH_TIMEOUT_MS, 10) || 45000,
   paymentVerifyEnabled: process.env.PAYMENT_VERIFY_ENABLED !== 'false',
+  paymentAutoApproveEnabled: process.env.PAYMENT_AUTO_APPROVE_ENABLED !== 'false',
+  paymentAutoApproveMinConfidence:
+    parseInt(process.env.PAYMENT_AUTO_APPROVE_MIN_CONFIDENCE, 10) || 90,
+  paymentAutoReleaseEnabled: process.env.PAYMENT_AUTO_RELEASE_ENABLED !== 'false',
   tesseractLang: process.env.TESSERACT_LANG || 'eng',
 };
