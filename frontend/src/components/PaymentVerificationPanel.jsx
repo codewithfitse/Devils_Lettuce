@@ -48,6 +48,8 @@ export default function PaymentVerificationPanel({ payment }) {
   const recClass = RECOMMENDATION_CLASS[v.recommendation] || 'verification-badge-uncertain';
   const official = v.officialReceipt || {};
 
+  const wasAutoApproved = payment.status === 'approved' && payment.autoApproved;
+
   return (
     <div className="payment-verification">
       <div className="payment-verification-header">
@@ -55,7 +57,9 @@ export default function PaymentVerificationPanel({ payment }) {
           {confidence}% — {RECOMMENDATION_LABELS[v.recommendation] || 'Uncertain'}
         </span>
         <span style={{ fontSize: '0.8rem', color: 'var(--color-muted)' }}>
-          Official receipt check — you approve or reject manually
+          {wasAutoApproved
+            ? 'Auto-approved and released to drivers'
+            : 'Official receipt check — you approve or reject manually'}
         </span>
       </div>
 
