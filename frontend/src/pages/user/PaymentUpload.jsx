@@ -7,6 +7,7 @@ export default function PaymentUpload() {
   const [acceptedOrders, setAcceptedOrders] = useState([]);
   const [selected, setSelected] = useState([]);
   const [proof, setProof] = useState(null);
+  const [receiptPdf, setReceiptPdf] = useState(null);
   const [reference, setReference] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -38,6 +39,7 @@ export default function PaymentUpload() {
     try {
       const formData = new FormData();
       formData.append('proof', proof);
+      if (receiptPdf) formData.append('receiptPdf', receiptPdf);
       formData.append('orderIds', JSON.stringify(selected));
       if (reference) formData.append('telebirrReference', reference);
 
@@ -103,6 +105,19 @@ export default function PaymentUpload() {
           />
           <p style={{ fontSize: '0.85rem', color: 'var(--color-muted)', marginTop: '0.35rem' }}>
             Find this on your Telebirr receipt under Transaction Number or Invoice No.
+            Open the official receipt link and use <strong>Download PDF</strong> if verification fails on the server.
+          </p>
+        </div>
+
+        <div className="form-group">
+          <label>Official Receipt PDF (recommended if link works in browser only)</label>
+          <input
+            type="file"
+            accept="application/pdf"
+            onChange={(e) => setReceiptPdf(e.target.files[0] || null)}
+          />
+          <p style={{ fontSize: '0.85rem', color: 'var(--color-muted)', marginTop: '0.35rem' }}>
+            On the receipt page, tap Download PDF and upload that file here. Used when the server cannot reach Ethio Telecom.
           </p>
         </div>
 

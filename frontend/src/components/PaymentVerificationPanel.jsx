@@ -90,6 +90,12 @@ export default function PaymentVerificationPanel({ payment }) {
               <span style={{ color: 'var(--color-danger)' }}>{official.fetchError}</span>
             </div>
           )}
+          {official.source && (
+            <div className="verification-field">
+              <span>Verified via</span>
+              <span>{official.source === 'pdf' ? 'Uploaded PDF' : 'Official receipt page'}</span>
+            </div>
+          )}
         </div>
       )}
 
