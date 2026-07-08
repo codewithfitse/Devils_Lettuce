@@ -293,6 +293,40 @@ export function startBot() {
     return next();
   });
 
+  // Support shared location (Telegram location message)
+  bot.on('location', async (ctx, next) => {
+    const lang = ctx.session.lang;
+    const checkout = ctx.session.checkout;
+
+    if (checkout?.step !== 'address') {
+      return next();
+    }
+
+    const loc = ctx.message.location;
+    const latitude = loc?.latitude;
+    const longitude = loc?.longitude;
+
+    if (typeof latitude !== 'number' || typeof longitude !== 'number') {
+      return ctx.reply(t(lang, 'error'));
+    }
+
+    ctx.session.checkout.address = 'Shared location';
+    ctx.session.checkout.coordinates = { lat: latitude, lng: longitude };
+    ctx.session.checkout.step = 'zone';
+
+    try {
+      const productIds = [...new Set(ctx.session.cart.map((i) => i.productId))];
+      const zones = await getDeliveryZones(productIds);
+      if (!zones.length) {
+        ctx.session.checkout = null;
+        return ctx.reply(t(lang, 'noDeliveryZones'));
+      }
+      return ctx.reply(t(lang, 'selectZone'), zoneKeyboard(zones, lang));
+    } catch {
+      return ctx.reply(t(lang, 'error'));
+    }
+  });
+
   bot.action(/^zone_(.+)$/, async (ctx) => {
     const zone = ctx.match[1];
     const lang = ctx.session.lang;
@@ -308,7 +342,13 @@ export function startBot() {
       const orders = await createOrders(ctx.session.token, {
         cartItems: ctx.session.cart,
         phone: checkout.phone,
-        location: { address: checkout.address, zone },
+        location: {
+          address: checkout.address,
+          zone,
+          ...(checkout.coordinates
+            ? { coordinates: checkout.coordinates }
+            : {}),
+        },
       });
 
       const ids = orders.map((o) => o._id.toString().slice(-6)).join(', ');
