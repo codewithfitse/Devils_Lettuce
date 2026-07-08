@@ -66,6 +66,7 @@ export function quantityKeyboard(productId, variantId, lang) {
       Markup.button.callback('5', `qty_${productId}_${variantId}_5`),
       Markup.button.callback('10', `qty_${productId}_${variantId}_10`),
     ],
+    [Markup.button.callback(t(lang, 'customQuantity'), `qty_custom_${productId}_${variantId}`)],
     [Markup.button.callback(t(lang, 'back'), `product_${productId}`)],
   ]);
 }

@@ -29,6 +29,7 @@ const defaultSession = () => ({
   user: null,
   cart: [],
   checkout: null,
+  customQty: null,
   awaitingPayment: false,
 });
 
@@ -175,6 +176,15 @@ export function startBot() {
     await ctx.reply(t(lang, 'mainMenu'), mainMenuKeyboard(lang));
   });
 
+  // Custom quantity: prompt user to type any number (e.g. 20)
+  bot.action(/^qty_custom_(.+)_([a-f0-9]+)$/, async (ctx) => {
+    const [, productId, variantId] = ctx.match;
+    const lang = ctx.session.lang;
+    await ctx.answerCbQuery();
+    ctx.session.customQty = { productId, variantId };
+    await updateMessage(ctx, t(lang, 'enterCustomQuantity'), Markup.inlineKeyboard([]));
+  });
+
   // Cart
   bot.hears(/My Cart|ጋሪዬ/, async (ctx) => {
     await showCart(ctx);
@@ -231,6 +241,32 @@ export function startBot() {
     const lang = ctx.session.lang;
     const text = ctx.message.text;
     const checkout = ctx.session.checkout;
+
+    if (ctx.session.customQty) {
+      const qty = parseInt(text, 10);
+      if (!Number.isInteger(qty) || qty <= 0) {
+        return ctx.reply(t(lang, 'invalidQuantity'));
+      }
+
+      const { productId, variantId } = ctx.session.customQty;
+      ctx.session.customQty = null;
+
+      const existing = ctx.session.cart.find(
+        (i) => i.productId === productId && i.variantId === variantId
+      );
+      if (existing) {
+        existing.quantity += qty;
+      } else {
+        ctx.session.cart.push({
+          productId,
+          variantId,
+          quantity: qty,
+        });
+      }
+
+      await ctx.reply(`✅ ${t(lang, 'addedToCart')}`);
+      return ctx.reply(t(lang, 'mainMenu'), mainMenuKeyboard(lang));
+    }
 
     if (checkout?.step === 'phone') {
       ctx.session.checkout.phone = text;

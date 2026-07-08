@@ -6,9 +6,88 @@ import { splitCartByMerchant, applyDeliveryFee } from '../utils/orderSplitter.js
 import { updateStock } from './productService.js';
 import { notifications } from '../utils/notifications.js';
 
+function toNumber(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function isValidCoordinate(lat, lng) {
+  return (
+    Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lng >= -180 &&
+    lng <= 180
+  );
+}
+
+/**
+ * Extract coordinates from common shared map URL formats.
+ * Supports Google Maps, Apple Maps, OpenStreetMap and generic ?q=lat,lng.
+ */
+function extractCoordinatesFromAddress(address) {
+  const text = String(address || '').trim();
+  if (!text) return null;
+
+  // Generic coordinates anywhere in text: "lat,lng"
+  const generic = text.match(/(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)/);
+  if (generic) {
+    const lat = toNumber(generic[1]);
+    const lng = toNumber(generic[2]);
+    if (isValidCoordinate(lat, lng)) return { lat, lng };
+  }
+
+  let parsedUrl = null;
+  try {
+    parsedUrl = new URL(text);
+  } catch {
+    return null;
+  }
+
+  // Google maps / place links often contain @lat,lng
+  const atMatch = parsedUrl.href.match(/@(-?\d{1,2}\.\d+),(-?\d{1,3}\.\d+)/);
+  if (atMatch) {
+    const lat = toNumber(atMatch[1]);
+    const lng = toNumber(atMatch[2]);
+    if (isValidCoordinate(lat, lng)) return { lat, lng };
+  }
+
+  // Query params commonly used by map providers
+  const queryCandidates = [
+    parsedUrl.searchParams.get('q'),
+    parsedUrl.searchParams.get('query'),
+    parsedUrl.searchParams.get('ll'),
+    parsedUrl.searchParams.get('sll'),
+    parsedUrl.searchParams.get('center'),
+  ].filter(Boolean);
+
+  for (const q of queryCandidates) {
+    const match = String(q).match(/(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)/);
+    if (!match) continue;
+    const lat = toNumber(match[1]);
+    const lng = toNumber(match[2]);
+    if (isValidCoordinate(lat, lng)) return { lat, lng };
+  }
+
+  return null;
+}
+
+function normalizeLocation(location = {}) {
+  const normalized = { ...location };
+  const coordsFromAddress = extractCoordinatesFromAddress(normalized.address);
+
+  if (coordsFromAddress) {
+    normalized.coordinates = coordsFromAddress;
+  }
+
+  return normalized;
+}
+
 export async function createOrders({ cartItems, location, phone, notes }, user) {
-  const merchantGroups = await splitCartByMerchant(cartItems, location?.zone);
-  const groupsWithFees = await applyDeliveryFee(merchantGroups, location?.zone);
+  const normalizedLocation = normalizeLocation(location);
+  const merchantGroups = await splitCartByMerchant(cartItems, normalizedLocation?.zone);
+  const groupsWithFees = await applyDeliveryFee(merchantGroups, normalizedLocation?.zone);
 
   const orders = [];
   for (const group of groupsWithFees) {
@@ -18,7 +97,7 @@ export async function createOrders({ cartItems, location, phone, notes }, user) 
       items: group.items,
       totalPrice: group.totalPrice,
       deliveryFee: group.deliveryFee,
-      location,
+      location: normalizedLocation,
       phone,
       notes,
       status: ORDER_STATUS.PENDING,

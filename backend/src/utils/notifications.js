@@ -36,6 +36,13 @@ async function notifyRecipients(chatIds, message, photoUrl) {
   );
 }
 
+function buildGoogleMapsLink(order) {
+  const lat = order?.location?.coordinates?.lat;
+  const lng = order?.location?.coordinates?.lng;
+  if (typeof lat !== 'number' || typeof lng !== 'number') return null;
+  return `https://www.google.com/maps?q=${lat},${lng}`;
+}
+
 function formatDriverOrderMessage(order) {
   const orderId = order._id.toString().slice(-6);
   const customerPhone = order.phone || order.userId?.phone || 'N/A';
@@ -49,6 +56,7 @@ function formatDriverOrderMessage(order) {
     .map((i) => `• ${i.productName} (${i.quality}) x${i.quantity}`)
     .join('\n');
   const total = order.totalPrice + (order.deliveryFee || 0);
+  const mapsUrl = buildGoogleMapsLink(order);
 
   let text =
     `📦 <b>Delivery Assigned — Order #${orderId}</b>\n\n` +
@@ -70,6 +78,10 @@ function formatDriverOrderMessage(order) {
 
   if (order.notes) {
     text += `\n<b>Notes:</b> ${order.notes}`;
+  }
+
+  if (mapsUrl) {
+    text += `\n<b>Open map:</b> ${mapsUrl}`;
   }
 
   return text;
@@ -347,11 +359,13 @@ export const notifications = {
       ],
     });
 
+    const mapsUrl = buildGoogleMapsLink(order);
     const message =
       `📢 <b>New Delivery Available!</b>\n` +
       `Order #${order._id.toString().slice(-6)}\n` +
       `Zone: ${order.location?.zone || 'N/A'}\n` +
       `Fee: ${order.deliveryFee || 0} ETB\n` +
+      (mapsUrl ? `Map: ${mapsUrl}\n` : '') +
       `Open the driver panel to claim it.`;
 
     await Promise.all(drivers.map((d) => sendTelegramMessage(d.telegramId, message)));
