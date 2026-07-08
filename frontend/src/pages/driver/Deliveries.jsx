@@ -21,8 +21,16 @@ function customerPhone(order) {
   return order.phone || order.userId?.phone;
 }
 
+function mapLink(order) {
+  const lat = order.location?.coordinates?.lat;
+  const lng = order.location?.coordinates?.lng;
+  if (typeof lat !== 'number' || typeof lng !== 'number') return null;
+  return `https://www.google.com/maps?q=${lat},${lng}`;
+}
+
 function OrderCard({ order, actions, showFullDetails = false }) {
   const phone = customerPhone(order);
+  const mapsUrl = mapLink(order);
 
   return (
     <div className="card">
@@ -59,6 +67,19 @@ function OrderCard({ order, actions, showFullDetails = false }) {
       <p style={{ fontSize: '0.85rem', color: 'var(--color-muted)' }}>
         📍 {order.location?.address} ({zoneName(order.location?.zone)})
       </p>
+
+      {mapsUrl && (
+        <p style={{ marginTop: '0.35rem' }}>
+          <a
+            href={mapsUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="btn btn-sm btn-outline"
+          >
+            Open Map
+          </a>
+        </p>
+      )}
 
       {showFullDetails && (
         <ul style={{ margin: '0.5rem 0', paddingLeft: '1.25rem', fontSize: '0.85rem' }}>

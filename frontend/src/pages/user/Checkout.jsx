@@ -83,8 +83,17 @@ export default function Checkout() {
           <input required value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
         </div>
         <div className="form-group">
-          <label>Delivery Address</label>
-          <textarea required rows={3} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+          <label>Delivery Address (text or map link)</label>
+          <textarea
+            required
+            rows={3}
+            value={form.address}
+            onChange={(e) => setForm({ ...form, address: e.target.value })}
+            placeholder="House / landmark OR share Google/Apple/OSM map link"
+          />
+          <p style={{ fontSize: '0.8rem', color: 'var(--color-muted)', marginTop: '0.35rem' }}>
+            You can paste a map share link. We automatically read coordinates when possible.
+          </p>
         </div>
         <div className="form-group">
           <label>Delivery Zone</label>
