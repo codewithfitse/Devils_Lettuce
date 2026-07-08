@@ -27,8 +27,14 @@ function parseCorsOrigins() {
     });
   }
 
-  // Vercel production + preview deployments
-  const list = [...origins, /^https:\/\/[\w-]+\.vercel\.app$/];
+  // Vercel previews + Cursor/VS Code Dev Tunnels + ngrok (local backend exposed to internet)
+  const list = [
+    ...origins,
+    /^https:\/\/[\w-]+\.vercel\.app$/,
+    /^https:\/\/.*\.devtunnels\.ms$/,
+    /^https:\/\/[\w-]+\.ngrok-free\.app$/,
+    /^https:\/\/[\w-]+\.ngrok\.io$/,
+  ];
   return list;
 }
 

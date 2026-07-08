@@ -11,6 +11,7 @@
     "test:verification": "node src/scripts/testPaymentVerification.js",
     "test:duplicate": "node src/scripts/testTransactionDuplicate.js",
     "test:official-receipt": "node src/scripts/testOfficialReceipt.js"
+    ,"test:delivery-fees": "node src/scripts/testDeliveryFees.js"
   },
   "dependencies": {
     "axios": "^1.18.1",

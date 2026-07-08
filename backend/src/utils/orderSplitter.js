@@ -1,11 +1,25 @@
 import Product from '../models/Product.js';
 import { AppError } from '../middleware/errorHandler.js';
-import { getAllZoneKeys, getZoneName, validateZoneKeys } from './deliveryPricing.js';
+import { getAllZoneKeys, getZoneName } from './deliveryPricing.js';
 import { getFee } from '../services/deliveryPricingService.js';
+
+export function getAllowedZoneKeys(product) {
+  if (product?.deliveryOptions?.length) {
+    return product.deliveryOptions.map((o) => o.key);
+  }
+  return product?.deliveryZones?.length ? product.deliveryZones : getAllZoneKeys();
+}
+
+export function getDeliveryFeeForProductAndZone(product, zone, sharedFee) {
+  if (product?.deliveryOptions?.length) {
+    return product.deliveryOptions.find((o) => o.key === zone)?.fee ?? sharedFee;
+  }
+  return sharedFee;
+}
 
 function assertProductAllowsZone(product, zone) {
   if (!zone) return;
-  const allowed = product.deliveryZones?.length ? product.deliveryZones : getAllZoneKeys();
+  const allowed = getAllowedZoneKeys(product);
   if (!allowed.includes(zone)) {
     throw new AppError(
       `"${product.name}" is not delivered to ${getZoneName(zone)}. Remove it from your cart or pick another area.`,
@@ -21,6 +35,7 @@ function assertProductAllowsZone(product, zone) {
  */
 export async function splitCartByMerchant(cartItems, zone) {
   const merchantMap = new Map();
+  const sharedFee = zone ? await getFee(zone) : 0;
 
   for (const item of cartItems) {
     const product = await Product.findById(item.productId).populate('ownerId', 'name');
@@ -39,6 +54,12 @@ export async function splitCartByMerchant(cartItems, zone) {
     }
 
     const merchantId = product.ownerId._id.toString();
+
+    // Delivery fee for this specific product when shipping to `zone`.
+    // - New-model product: use its deliveryOptions fee for the zone
+    // - Legacy product: fall back to shared DeliveryZone fee
+    const deliveryFeeForZone = getDeliveryFeeForProductAndZone(product, zone, sharedFee);
+
     const orderItem = {
       productId: product._id,
       productName: product.name,
@@ -46,6 +67,7 @@ export async function splitCartByMerchant(cartItems, zone) {
       quantity: item.quantity,
       price: variant.price,
       unit: variant.unit,
+      deliveryFeeForZone,
     };
 
     if (!merchantMap.has(merchantId)) {
@@ -65,11 +87,16 @@ export async function splitCartByMerchant(cartItems, zone) {
   return Array.from(merchantMap.values());
 }
 
-export async function applyDeliveryFee(merchantGroups, zone) {
-  const fee = await getFee(zone);
+export async function applyDeliveryFee(merchantGroups, _zone) {
   return merchantGroups.map((group) => ({
     ...group,
-    deliveryFee: fee,
-    grandTotal: group.totalPrice + fee,
+    deliveryFee: Math.max(
+      0,
+      ...(group.items?.map((i) => Number(i.deliveryFeeForZone) || 0) || [0])
+    ),
+    grandTotal: group.totalPrice + Math.max(
+      0,
+      ...(group.items?.map((i) => Number(i.deliveryFeeForZone) || 0) || [0])
+    ),
   }));
 }

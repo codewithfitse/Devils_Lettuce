@@ -98,7 +98,10 @@ export async function getZonesForProducts(productIds) {
 
   if (!products.length) return deliveryPricing.getZones();
 
-  const zoneLists = products.map((p) => (p.deliveryZones?.length ? p.deliveryZones : getAllZoneKeys()));
+  const zoneLists = products.map((p) => {
+    if (p.deliveryOptions?.length) return p.deliveryOptions.map((o) => o.key);
+    return p.deliveryZones?.length ? p.deliveryZones : getAllZoneKeys();
+  });
   const common = zoneLists.reduce((acc, list) => acc.filter((z) => list.includes(z)));
 
   const zones = await deliveryPricing.getZones();
@@ -106,8 +109,54 @@ export async function getZonesForProducts(productIds) {
   return common.map((k) => zoneMap.get(k)).filter(Boolean);
 }
 
-export async function estimateDeliveryFee(zone) {
-  return { zone, fee: await deliveryPricing.getFee(zone) };
+function deliveryFeeForProductAndZone(product, zone, sharedFee) {
+  if (product?.deliveryOptions?.length) {
+    return product.deliveryOptions.find((o) => o.key === zone)?.fee ?? sharedFee;
+  }
+  return sharedFee;
+}
+
+/**
+ * Estimate total delivery fee for the cart:
+ * - Orders are split per merchant
+ * - For each merchant, delivery fee = highest matching product fee for `zone`
+ * - Total estimate = sum of merchant delivery fees
+ */
+export async function estimateDeliveryFee(zone, productIds = []) {
+  const ids = Array.isArray(productIds) ? productIds : [];
+  const sharedFee = await deliveryPricing.getFee(zone);
+
+  if (!ids.length) {
+    return { zone, fee: sharedFee };
+  }
+
+  const products = await Product.find({
+    _id: { $in: ids },
+    isActive: true,
+    isApproved: true,
+  }).select('ownerId deliveryZones deliveryOptions');
+
+  if (!products.length) {
+    return { zone, fee: sharedFee };
+  }
+
+  const byMerchant = new Map();
+  for (const p of products) {
+    const merchantId = p.ownerId?.toString?.() || p.ownerId;
+    if (!byMerchant.has(merchantId)) byMerchant.set(merchantId, []);
+    byMerchant.get(merchantId).push(p);
+  }
+
+  let total = 0;
+  for (const [, merchantProducts] of byMerchant.entries()) {
+    const merchantFee = Math.max(
+      0,
+      ...merchantProducts.map((p) => Number(deliveryFeeForProductAndZone(p, zone, sharedFee)) || 0)
+    );
+    total += merchantFee;
+  }
+
+  return { zone, fee: total };
 }
 
 export async function getMyDeliveries(requester) {

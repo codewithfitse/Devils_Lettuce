@@ -1,6 +1,6 @@
 import Product from '../models/Product.js';
 import { AppError } from '../middleware/errorHandler.js';
-import { validateZoneKeys } from '../utils/deliveryPricing.js';
+import { validateZoneKeys, getAllZoneKeys } from '../utils/deliveryPricing.js';
 
 function normalizeDeliveryZones(data) {
   if (data.deliveryZones === undefined) return data;
@@ -13,6 +13,50 @@ function normalizeDeliveryZones(data) {
   }
   const err = validateZoneKeys(data.deliveryZones);
   if (err) throw new AppError(err, 400);
+  return data;
+}
+
+function normalizeDeliveryOptions(data) {
+  if (data.deliveryOptions === undefined) return data;
+  if (typeof data.deliveryOptions === 'string') {
+    try {
+      data.deliveryOptions = JSON.parse(data.deliveryOptions);
+    } catch {
+      data.deliveryOptions = [];
+    }
+  }
+
+  if (!Array.isArray(data.deliveryOptions)) {
+    throw new AppError('Invalid delivery options format', 400);
+  }
+
+  // Validate keys exist in the deliveryPricing ZONES set.
+  const allowedKeys = new Set(getAllZoneKeys());
+  const normalized = [];
+  for (const opt of data.deliveryOptions || []) {
+    if (!opt) continue;
+    const key = typeof opt.key === 'string' ? opt.key.trim() : null;
+    const fee = Number(opt.fee);
+    const name = typeof opt.name === 'string' ? opt.name.trim() : '';
+
+    if (!key || !allowedKeys.has(key)) {
+      throw new AppError(`Invalid delivery area: ${key || 'unknown'}`, 400);
+    }
+    if (!name) {
+      throw new AppError('Delivery option name is required', 400);
+    }
+    if (!Number.isFinite(fee) || fee < 0) {
+      throw new AppError('Delivery option fee must be a valid non-negative number', 400);
+    }
+
+    normalized.push({ key, name, fee });
+  }
+
+  if (normalized.length === 0) {
+    throw new AppError('Select at least one delivery option', 400);
+  }
+
+  data.deliveryOptions = normalized;
   return data;
 }
 
@@ -55,6 +99,7 @@ export async function createProduct(data, owner) {
   }
 
   normalizeDeliveryZones(data);
+  normalizeDeliveryOptions(data);
 
   const product = await Product.create({
     ...data,
@@ -73,7 +118,15 @@ export async function updateProduct(id, data, requester) {
     throw new AppError('You can only modify your own products', 403);
   }
 
-  const allowed = ['name', 'description', 'image', 'variants', 'isActive', 'deliveryZones'];
+  const allowed = [
+    'name',
+    'description',
+    'image',
+    'variants',
+    'isActive',
+    'deliveryZones',
+    'deliveryOptions',
+  ];
   const adminFields = ['isApproved', 'isFeatured'];
 
   for (const key of allowed) {
@@ -91,6 +144,11 @@ export async function updateProduct(id, data, requester) {
   if (data.deliveryZones !== undefined) {
     normalizeDeliveryZones(data);
     product.deliveryZones = data.deliveryZones;
+  }
+
+  if (data.deliveryOptions !== undefined) {
+    normalizeDeliveryOptions(data);
+    product.deliveryOptions = data.deliveryOptions;
   }
 
   if (!requester.isSuperAdmin()) {

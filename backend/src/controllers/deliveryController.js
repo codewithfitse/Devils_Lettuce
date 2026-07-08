@@ -26,7 +26,14 @@ export async function getDeliveryZones(req, res) {
 }
 
 export async function estimateFee(req, res) {
-  const estimate = await deliveryService.estimateDeliveryFee(req.query.zone);
+  const raw = req.query.productIds;
+  const productIds = raw
+    ? String(raw)
+        .split(',')
+        .map((id) => id.trim())
+        .filter(Boolean)
+    : [];
+  const estimate = await deliveryService.estimateDeliveryFee(req.query.zone, productIds);
   res.json({ success: true, data: estimate });
 }
 

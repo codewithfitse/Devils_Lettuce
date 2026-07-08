@@ -17,6 +17,13 @@ function parseProductBody(body) {
       data.deliveryZones = [];
     }
   }
+  if (typeof data.deliveryOptions === 'string') {
+    try {
+      data.deliveryOptions = JSON.parse(data.deliveryOptions);
+    } catch {
+      data.deliveryOptions = [];
+    }
+  }
   if (data.price !== undefined) data.price = Number(data.price);
   return data;
 }

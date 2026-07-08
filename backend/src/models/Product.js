@@ -10,6 +10,15 @@ const variantSchema = new mongoose.Schema(
   { _id: true }
 );
 
+const deliveryOptionSchema = new mongoose.Schema(
+  {
+    key: { type: String, required: true, trim: true },
+    name: { type: String, required: true, trim: true },
+    fee: { type: Number, required: true, min: 0 },
+  },
+  { _id: false }
+);
+
 const productSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
@@ -22,6 +31,11 @@ const productSchema = new mongoose.Schema(
     isActive: { type: Boolean, default: true },
     /** Zone keys from deliveryPricing.ZONES — merchant picks where this product can be delivered */
     deliveryZones: { type: [String], default: [] },
+    /**
+     * Product-level delivery options (hybrid rollout).
+     * If set, fees/places are taken from these options instead of shared DeliveryZone pricing.
+     */
+    deliveryOptions: { type: [deliveryOptionSchema], default: [] },
   },
   { timestamps: true }
 );
