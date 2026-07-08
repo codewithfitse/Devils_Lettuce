@@ -22,8 +22,11 @@ api.interceptors.response.use(
   (res) => res.data,
   (error) => {
     if (!error.response && error.message === 'Network Error') {
+      const tunnelApi = import.meta.env.VITE_API_URL;
       const hint = import.meta.env.DEV
-        ? 'Start the backend: npm run dev (from project root) or npm run dev:backend'
+        ? tunnelApi
+          ? `Check backend tunnel is running and CORS allows your frontend tunnel URL. API: ${tunnelApi}`
+          : 'Start the backend: npm run dev (from project root) or npm run dev:backend'
         : 'Check that https://devils-lettuce.onrender.com is running';
       return Promise.reject(new Error(`Cannot reach API. ${hint}.`));
     }
@@ -55,6 +58,9 @@ export const productApi = {
       if (data.deliveryZones?.length) {
         formData.append('deliveryZones', JSON.stringify(data.deliveryZones));
       }
+      if (data.deliveryOptions?.length) {
+        formData.append('deliveryOptions', JSON.stringify(data.deliveryOptions));
+      }
       formData.append('image', imageFile);
       return api.post('/products', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -69,6 +75,9 @@ export const productApi = {
       if (data.description !== undefined) formData.append('description', data.description);
       if (data.variants) formData.append('variants', JSON.stringify(data.variants));
       if (data.deliveryZones) formData.append('deliveryZones', JSON.stringify(data.deliveryZones));
+      if (data.deliveryOptions) {
+        formData.append('deliveryOptions', JSON.stringify(data.deliveryOptions));
+      }
       formData.append('image', imageFile);
       return api.patch(`/products/${id}`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -112,7 +121,13 @@ export const deliveryApi = {
     const params = productIds?.length ? { productIds: productIds.join(',') } : undefined;
     return api.get('/delivery/zones', { params });
   },
-  estimate: (zone) => api.get('/delivery/estimate', { params: { zone } }),
+  estimate: (zone, productIds) =>
+    api.get('/delivery/estimate', {
+      params: {
+        zone,
+        productIds: productIds?.length ? productIds.join(',') : undefined,
+      },
+    }),
   getPricing: () => api.get('/delivery/pricing'),
   updatePricing: (zones) => api.put('/delivery/pricing', { zones }),
   getAvailable: () => api.get('/delivery/available'),

@@ -8,6 +8,7 @@ export default function Checkout() {
   const { items, total, clearCart } = useCart();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const productIds = items.map((i) => i.productId);
   const [zones, setZones] = useState([]);
   const [form, setForm] = useState({
     phone: user?.phone || '',
@@ -20,7 +21,6 @@ export default function Checkout() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const productIds = items.map((i) => i.productId);
     deliveryApi.getZones(productIds).then((res) => {
       setZones(res.data);
       setForm((prev) => {
@@ -30,15 +30,15 @@ export default function Checkout() {
         return prev;
       });
     });
-  }, [items]);
+  }, [productIds]);
 
   useEffect(() => {
     if (form.zone) {
-      deliveryApi.estimate(form.zone).then((res) => setDeliveryFee(res.data.fee));
+      deliveryApi.estimate(form.zone, productIds).then((res) => setDeliveryFee(res.data.fee));
     } else {
       setDeliveryFee(0);
     }
-  }, [form.zone]);
+  }, [form.zone, productIds]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

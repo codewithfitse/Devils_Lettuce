@@ -9,6 +9,8 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     server: {
       port: 5173,
+      // Required when opening the app via Dev Tunnels / ngrok (not plain localhost)
+      allowedHosts: ['.devtunnels.ms', '.ngrok-free.app', '.ngrok.io', '.loca.lt'],
       proxy: {
         '/api': {
           target: backendUrl,
