@@ -1,15 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../../contexts/CartContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { orderApi, deliveryApi } from '../../services/api';
+
+const AREAS_PAGE_SIZE = 10;
 
 export default function Checkout() {
   const { items, total, clearCart } = useCart();
   const { user } = useAuth();
   const navigate = useNavigate();
   const productIds = items.map((i) => i.productId);
-  const [zones, setZones] = useState([]);
+  const [areas, setAreas] = useState([]);
+  const [areaPage, setAreaPage] = useState(0);
   const [form, setForm] = useState({
     phone: user?.phone || '',
     address: '',
@@ -21,16 +24,28 @@ export default function Checkout() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    deliveryApi.getZones(productIds).then((res) => {
-      setZones(res.data);
+    deliveryApi.getAreas(productIds).then((res) => {
+      setAreas(res.data);
+      setAreaPage(0);
       setForm((prev) => {
-        if (prev.zone && !res.data.some((z) => z.key === prev.zone)) {
+        if (prev.zone && !res.data.some((a) => a.key === prev.zone)) {
           return { ...prev, zone: '' };
         }
         return prev;
       });
     });
   }, [productIds]);
+
+  const sortedAreas = useMemo(
+    () => [...areas].sort((a, b) => a.name.localeCompare(b.name)),
+    [areas]
+  );
+
+  const totalPages = Math.max(1, Math.ceil(sortedAreas.length / AREAS_PAGE_SIZE));
+  const pageAreas = sortedAreas.slice(
+    areaPage * AREAS_PAGE_SIZE,
+    (areaPage + 1) * AREAS_PAGE_SIZE
+  );
 
   useEffect(() => {
     if (form.zone) {
@@ -96,20 +111,45 @@ export default function Checkout() {
           </p>
         </div>
         <div className="form-group">
-          <label>Delivery Zone</label>
-          {!zones.length ? (
+          <label>Delivery Area</label>
+          {!sortedAreas.length ? (
             <p className="alert alert-error" style={{ margin: 0 }}>
               No delivery area in common for your cart items. Remove a product or try again later.
             </p>
           ) : (
-            <select required value={form.zone} onChange={(e) => setForm({ ...form, zone: e.target.value })}>
-              <option value="">Select zone...</option>
-              {zones.map((z) => (
-                <option key={z.key} value={z.key}>
-                  {z.name} ({z.fee === 0 ? 'Free' : `+${z.fee} ETB`})
-                </option>
-              ))}
-            </select>
+            <>
+              <select required value={form.zone} onChange={(e) => setForm({ ...form, zone: e.target.value })}>
+                <option value="">Select your area...</option>
+                {pageAreas.map((a) => (
+                  <option key={a.key} value={a.key}>
+                    {a.name} ({a.price} ETB)
+                  </option>
+                ))}
+              </select>
+              {totalPages > 1 && (
+                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', alignItems: 'center' }}>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline"
+                    disabled={areaPage === 0}
+                    onClick={() => setAreaPage((p) => Math.max(0, p - 1))}
+                  >
+                    Previous
+                  </button>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--color-muted)' }}>
+                    Page {areaPage + 1} of {totalPages}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline"
+                    disabled={areaPage >= totalPages - 1}
+                    onClick={() => setAreaPage((p) => Math.min(totalPages - 1, p + 1))}
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
         <div className="form-group">
@@ -122,11 +162,11 @@ export default function Checkout() {
           <p>Delivery: <strong>{deliveryFee} ETB</strong></p>
           <p style={{ fontSize: '1.15rem' }}>Grand Total: <strong>{total + deliveryFee} ETB</strong></p>
           <p style={{ fontSize: '0.85rem', color: 'var(--color-muted)', marginTop: '0.5rem' }}>
-            Note: Orders from multiple merchants will be split. You only pay for accepted orders.
+            Delivery = 160 + (km × 16). Areas over 12 km add +250 ETB.
           </p>
         </div>
 
-        <button type="submit" className="btn btn-primary" disabled={loading || !zones.length || !form.zone}>
+        <button type="submit" className="btn btn-primary" disabled={loading || !sortedAreas.length || !form.zone}>
           {loading ? 'Placing Order...' : 'Place Order'}
         </button>
       </form>

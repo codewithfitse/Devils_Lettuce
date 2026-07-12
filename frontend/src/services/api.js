@@ -122,6 +122,12 @@ export const deliveryApi = {
     const params = productIds?.length ? { productIds: productIds.join(',') } : undefined;
     return api.get('/delivery/zones', { params });
   },
+  getAreas: (productIds) => {
+    const params = productIds?.length ? { productIds: productIds.join(',') } : undefined;
+    return api.get('/delivery/areas', { params });
+  },
+  getZoneGroups: () => api.get('/delivery/zone-groups'),
+  getPrice: (areaName) => api.get('/delivery/price', { params: { area: areaName } }),
   estimate: (zone, productIds) =>
     api.get('/delivery/estimate', {
       params: {
@@ -129,13 +135,19 @@ export const deliveryApi = {
         productIds: productIds?.length ? productIds.join(',') : undefined,
       },
     }),
-  getPricing: () => api.get('/delivery/pricing'),
-  updatePricing: (zones) => api.put('/delivery/pricing', { zones }),
   getAvailable: () => api.get('/delivery/available'),
   getMine: () => api.get('/delivery/mine'),
   getCompleted: () => api.get('/delivery/completed'),
   start: (orderId) => api.patch(`/delivery/${orderId}/start`),
   complete: (orderId) => api.patch(`/delivery/${orderId}/complete`),
+};
+
+// Areas (admin CRUD)
+export const areaApi = {
+  getAll: () => api.get('/areas'),
+  create: (data) => api.post('/areas', data),
+  update: (id, data) => api.put(`/areas/${id}`, data),
+  delete: (id) => api.delete(`/areas/${id}`),
 };
 
 // Users

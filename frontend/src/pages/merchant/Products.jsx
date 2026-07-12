@@ -1,14 +1,11 @@
 import { useEffect, useState } from 'react';
 import { productApi, deliveryApi } from '../../services/api';
-import { formatZoneFee } from '../../components/ZonePicker';
+import { formatAreaPrice } from '../../components/ZonePicker';
 
 const emptyVariant = { quality: 'High', price: 0, stock: 0, unit: 'kg' };
 
-function DeliveryOptionsEditor({ zones, options, onChange }) {
+function DeliveryOptionsEditor({ areas, options, onChange }) {
   const selectedKeys = new Set((options || []).map((o) => o.key));
-
-  const getFee = (key) => options?.find((o) => o.key === key)?.fee ?? 0;
-  const getName = (key) => zones.find((z) => z.key === key)?.name || key;
 
   const toggle = (key) => {
     const current = options || [];
@@ -21,87 +18,46 @@ function DeliveryOptionsEditor({ zones, options, onChange }) {
       }
       onChange(current.filter((o) => o.key !== key));
     } else {
-      const z = zones.find((x) => x.key === key);
-      const next = [
+      const area = areas.find((x) => x.key === key);
+      onChange([
         ...current,
         {
           key,
-          name: z?.name || getName(key),
-          fee: z?.fee ?? getFee(key),
+          name: area?.name || key,
         },
-      ];
-      onChange(next);
+      ]);
     }
-  };
-
-  const setFee = (key, fee) => {
-    const next = (options || []).map((o) => (o.key === key ? { ...o, fee } : o));
-    onChange(next);
   };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-      {zones.map((z) => {
-        const on = selectedKeys.has(z.key);
-        if (!on) {
-          return (
-            <label
-              key={z.key}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.6rem',
-                padding: '0.5rem 0.65rem',
-                borderRadius: 'var(--radius)',
-                border: '1px solid var(--color-border)',
-                cursor: 'pointer',
-                background: 'transparent',
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={on}
-                onChange={() => toggle(z.key)}
-              />
-              <span style={{ flex: 1 }}>{z.name}</span>
-              <span style={{ fontSize: '0.85rem', color: 'var(--color-muted)' }}>
-                {formatZoneFee(z.fee)} (default)
-              </span>
-            </label>
-          );
-        }
-
-        const fee = getFee(z.key);
+      {areas.map((a) => {
+        const on = selectedKeys.has(a.key);
         return (
-          <div
-            key={z.key}
+          <label
+            key={a.key}
             style={{
-              border: '1px solid var(--color-border)',
-              borderRadius: 'var(--radius)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.6rem',
               padding: '0.5rem 0.65rem',
+              borderRadius: 'var(--radius)',
+              border: '1px solid var(--color-border)',
+              cursor: 'pointer',
+              background: on ? 'var(--color-surface-2)' : 'transparent',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-              <input type="checkbox" checked={on} onChange={() => toggle(z.key)} />
-              <span style={{ flex: 1 }}>{z.name}</span>
-              <span style={{ fontSize: '0.85rem', color: 'var(--color-muted)' }}>Set fee:</span>
-            </div>
-            <div style={{ marginTop: '0.45rem', display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-              <input
-                type="number"
-                min={0}
-                value={fee}
-                onChange={(e) => setFee(z.key, parseFloat(e.target.value) || 0)}
-                style={{ width: 140 }}
-              />
-              <span style={{ color: 'var(--color-muted)' }}>ETB</span>
-            </div>
-          </div>
+            <input type="checkbox" checked={on} onChange={() => toggle(a.key)} />
+            <span style={{ flex: 1 }}>{a.name}</span>
+            <span style={{ fontSize: '0.85rem', color: 'var(--color-muted)' }}>
+              {formatAreaPrice(a.price)}
+            </span>
+          </label>
         );
       })}
 
       <p style={{ fontSize: '0.8rem', color: 'var(--color-muted)', margin: 0 }}>
-        Tick at least one place. Each place has its own delivery fee for this product.
+        Tick at least one place. Delivery price is calculated automatically (160 + km × 16).
       </p>
     </div>
   );
@@ -110,7 +66,7 @@ function DeliveryOptionsEditor({ zones, options, onChange }) {
 function ProductForm({
   form,
   setForm,
-  allZones,
+  allAreas,
   imageFile,
   setImageFile,
   imagePreview,
@@ -157,7 +113,7 @@ function ProductForm({
       <div className="form-group">
         <label>Delivery places *</label>
         <DeliveryOptionsEditor
-          zones={allZones}
+          areas={allAreas}
           options={form.deliveryOptions || []}
           onChange={(deliveryOptions) =>
             setForm({
@@ -234,7 +190,7 @@ function ProductForm({
 
 export default function MerchantProducts() {
   const [products, setProducts] = useState([]);
-  const [allZones, setAllZones] = useState([]);
+  const [allAreas, setAllAreas] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState({
@@ -253,7 +209,7 @@ export default function MerchantProducts() {
 
   useEffect(() => {
     load();
-    deliveryApi.getZones().then((res) => setAllZones(res.data));
+    deliveryApi.getAreas().then((res) => setAllAreas(res.data));
   }, []);
 
   const resetForm = () => {
@@ -283,12 +239,11 @@ export default function MerchantProducts() {
     const initialOptions =
       product.deliveryOptions?.length > 0
         ? product.deliveryOptions
-        : (product.deliveryZones || []).map((zoneKey) => {
-            const z = allZones.find((x) => x.key === zoneKey);
+        : (product.deliveryZones || []).map((areaKey) => {
+            const a = allAreas.find((x) => x.key === areaKey);
             return {
-              key: zoneKey,
-              name: z?.name || zoneKey,
-              fee: z?.fee ?? 0,
+              key: areaKey,
+              name: a?.name || areaKey,
             };
           });
 
@@ -338,13 +293,12 @@ export default function MerchantProducts() {
     }
   };
 
-  const toggleProductZone = async (product, zoneKey) => {
-    const z = allZones.find((x) => x.key === zoneKey);
+  const toggleProductZone = async (product, areaKey) => {
+    const area = allAreas.find((x) => x.key === areaKey);
 
-    // If product already uses deliveryOptions, preserve the per-place fee while toggling.
     if (product.deliveryOptions?.length > 0) {
       const current = product.deliveryOptions || [];
-      const isOn = current.some((o) => o.key === zoneKey);
+      const isOn = current.some((o) => o.key === areaKey);
 
       let nextOptions;
       if (isOn) {
@@ -352,11 +306,11 @@ export default function MerchantProducts() {
           alert('At least one delivery place must stay enabled');
           return;
         }
-        nextOptions = current.filter((o) => o.key !== zoneKey);
+        nextOptions = current.filter((o) => o.key !== areaKey);
       } else {
         nextOptions = [
           ...current,
-          { key: zoneKey, name: z?.name || zoneKey, fee: z?.fee ?? 0 },
+          { key: areaKey, name: area?.name || areaKey },
         ];
       }
       const nextKeys = nextOptions.map((o) => o.key);
@@ -368,17 +322,16 @@ export default function MerchantProducts() {
       return;
     }
 
-    // Legacy mode (deliveryZones only)
     const current = product.deliveryZones || [];
     let next;
-    if (current.includes(zoneKey)) {
+    if (current.includes(areaKey)) {
       if (current.length <= 1) {
         alert('At least one delivery area must stay enabled');
         return;
       }
-      next = current.filter((z) => z !== zoneKey);
+      next = current.filter((z) => z !== areaKey);
     } else {
-      next = [...current, zoneKey];
+      next = [...current, areaKey];
     }
     try {
       await productApi.update(product._id, { deliveryZones: next });
@@ -407,7 +360,7 @@ export default function MerchantProducts() {
     }
   };
 
-  const zoneLabel = (key) => allZones.find((z) => z.key === key)?.name || key;
+  const areaLabel = (key) => allAreas.find((a) => a.key === key)?.name || key;
 
   return (
     <div>
@@ -422,7 +375,7 @@ export default function MerchantProducts() {
         <ProductForm
           form={form}
           setForm={setForm}
-          allZones={allZones}
+          allAreas={allAreas}
           imageFile={imageFile}
           setImageFile={setImageFile}
           imagePreview={imagePreview}
@@ -457,22 +410,18 @@ export default function MerchantProducts() {
                 <div style={{ marginTop: '0.75rem' }}>
                   <p style={{ fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.35rem' }}>Delivery areas</p>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
-                    {allZones.map((z) => {
-                      const on = p.deliveryOptions?.length > 0 ? p.deliveryOptions.some((o) => o.key === z.key) : (p.deliveryZones || []).includes(z.key);
+                    {allAreas.map((a) => {
+                      const on = p.deliveryOptions?.length > 0 ? p.deliveryOptions.some((o) => o.key === a.key) : (p.deliveryZones || []).includes(a.key);
                       return (
                         <button
-                          key={z.key}
+                          key={a.key}
                           type="button"
                           className={`btn btn-sm ${on ? 'btn-primary' : 'btn-outline'}`}
                           style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
-                          onClick={() => toggleProductZone(p, z.key)}
-                          title={
-                            p.deliveryOptions?.length > 0
-                              ? `Fee: ${formatZoneFee(p.deliveryOptions.find((o) => o.key === z.key)?.fee ?? z.fee)}`
-                              : formatZoneFee(z.fee)
-                          }
+                          onClick={() => toggleProductZone(p, a.key)}
+                          title={formatAreaPrice(a.price)}
                         >
-                          {on ? '✓ ' : ''}{z.name}
+                          {on ? '✓ ' : ''}{a.name}
                         </button>
                       );
                     })}
