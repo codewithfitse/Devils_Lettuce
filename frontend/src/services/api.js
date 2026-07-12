@@ -87,6 +87,7 @@ export const productApi = {
   },
   delete: (id) => api.delete(`/products/${id}`),
   approve: (id) => api.patch(`/products/${id}/approve`),
+  announce: (id) => api.post(`/products/${id}/announce`),
 };
 
 // Orders
@@ -143,4 +144,10 @@ export const userApi = {
   getDrivers: () => api.get('/users/drivers'),
   update: (id, data) => api.patch(`/users/${id}`, data),
   delete: (id) => api.delete(`/users/${id}`),
+};
+
+// Notifications (Telegram broadcast)
+export const notificationApi = {
+  getSubscriberCount: () => api.get('/notifications/subscribers'),
+  broadcast: (message) => api.post('/notifications/broadcast', { message }),
 };

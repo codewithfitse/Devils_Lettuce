@@ -4,21 +4,31 @@ import { productApi } from '../../services/api';
 export default function AdminProducts() {
   const [products, setProducts] = useState([]);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
   const load = () => productApi.getAll({ approvedOnly: false, includeInactive: true }).then((res) => setProducts(res.data));
   useEffect(() => { load(); }, []);
 
-  const run = async (action) => {
+  const run = async (action, successMsg) => {
     setError('');
+    setSuccess('');
     try {
-      await action();
+      const result = await action();
+      if (successMsg) setSuccess(successMsg);
+      if (result?.data?.sent != null) {
+        setSuccess(`Announcement sent to ${result.data.sent} of ${result.data.total} bot users.`);
+      }
       load();
     } catch (err) {
       setError(err.message);
     }
   };
 
-  const approve = (id) => run(() => productApi.approve(id));
+  const approve = (id) => run(() => productApi.approve(id), 'Product approved — bot users will be notified automatically.');
+  const announce = (id, name) => {
+    if (!window.confirm(`Send a new product announcement for "${name}" to all bot users?`)) return;
+    run(() => productApi.announce(id));
+  };
   const toggleFeatured = (id, current) => run(() => productApi.update(id, { isFeatured: !current }));
   const toggleVisible = (id, current) => run(() => productApi.update(id, { isActive: !current }));
   const handleDelete = (id, name) => {
@@ -29,6 +39,7 @@ export default function AdminProducts() {
   return (
     <div>
       <h1 className="page-title">Products</h1>
+      {success && <div className="alert alert-success">{success}</div>}
       {error && <div className="alert alert-error">{error}</div>}
       <div className="card table-wrap">
         <table className="table">
@@ -55,6 +66,11 @@ export default function AdminProducts() {
                 <td style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                   {!p.isApproved && (
                     <button className="btn btn-sm btn-primary" onClick={() => approve(p._id)}>Approve</button>
+                  )}
+                  {p.isApproved && p.isActive && (
+                    <button className="btn btn-sm btn-outline" onClick={() => announce(p._id, p.name)}>
+                      Notify bot users
+                    </button>
                   )}
                   <button className="btn btn-sm btn-outline" onClick={() => toggleVisible(p._id, p.isActive)}>
                     {p.isActive ? 'Hide' : 'Show'}

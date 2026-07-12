@@ -24,6 +24,7 @@ import AdminProducts from './pages/admin/Products';
 import AdminOrders from './pages/admin/Orders';
 import AdminPayments from './pages/admin/Payments';
 import AdminDeliveryPricing from './pages/admin/DeliveryPricing';
+import AdminBroadcast from './pages/admin/Broadcast';
 
 // Merchant
 import MerchantDashboard from './pages/merchant/Dashboard';
@@ -41,6 +42,7 @@ const adminLinks = [
   { to: '/admin/orders', label: 'Orders', shortLabel: 'Orders', icon: '📦' },
   { to: '/admin/payments', label: 'Payments', shortLabel: 'Pay', icon: '💳' },
   { to: '/admin/delivery-pricing', label: 'Delivery Prices', shortLabel: 'Delivery', icon: '🗺️' },
+  { to: '/admin/broadcast', label: 'Broadcast', shortLabel: 'Broadcast', icon: '📢' },
 ];
 
 const merchantLinks = [
@@ -89,6 +91,9 @@ export default function App() {
       } />
       <Route path="/admin/delivery-pricing" element={
         <ProtectedRoute roles={['super_admin']}><Layout sidebar={<Sidebar links={adminLinks} />} panelLinks={adminLinks}><AdminDeliveryPricing /></Layout></ProtectedRoute>
+      } />
+      <Route path="/admin/broadcast" element={
+        <ProtectedRoute roles={['super_admin']}><Layout sidebar={<Sidebar links={adminLinks} />} panelLinks={adminLinks}><AdminBroadcast /></Layout></ProtectedRoute>
       } />
 
       {/* Merchant panel */}
