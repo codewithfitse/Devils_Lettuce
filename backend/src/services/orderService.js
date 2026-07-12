@@ -5,6 +5,7 @@ import { AppError } from '../middleware/errorHandler.js';
 import { splitCartByMerchant, applyDeliveryFee } from '../utils/orderSplitter.js';
 import { updateStock } from './productService.js';
 import { notifications } from '../utils/notifications.js';
+import * as areaService from './areaService.js';
 
 function toNumber(value) {
   const n = Number(value);
@@ -84,8 +85,22 @@ function normalizeLocation(location = {}) {
   return normalized;
 }
 
+async function enrichLocationWithAreaSnapshot(location = {}) {
+  if (!location?.zone) return location;
+
+  const area = await areaService.getAreaByKey(location.zone);
+  if (!area) return location;
+
+  return {
+    ...location,
+    areaName: area.name,
+    km: area.km,
+    deliveryPrice: area.price,
+  };
+}
+
 export async function createOrders({ cartItems, location, phone, notes }, user) {
-  const normalizedLocation = normalizeLocation(location);
+  const normalizedLocation = await enrichLocationWithAreaSnapshot(normalizeLocation(location));
   const merchantGroups = await splitCartByMerchant(cartItems, normalizedLocation?.zone);
   const groupsWithFees = await applyDeliveryFee(merchantGroups, normalizedLocation?.zone);
 

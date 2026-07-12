@@ -6,6 +6,7 @@ import orderRoutes from './orderRoutes.js';
 import paymentRoutes from './paymentRoutes.js';
 import deliveryRoutes from './deliveryRoutes.js';
 import notificationRoutes from './notificationRoutes.js';
+import areaRoutes from './areaRoutes.js';
 
 const router = Router();
 
@@ -20,5 +21,6 @@ router.use('/orders', orderRoutes);
 router.use('/payments', paymentRoutes);
 router.use('/delivery', deliveryRoutes);
 router.use('/notifications', notificationRoutes);
+router.use('/areas', areaRoutes);
 
 export default router;

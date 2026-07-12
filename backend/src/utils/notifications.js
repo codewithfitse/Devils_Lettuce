@@ -1,6 +1,6 @@
 import env from '../config/env.js';
 import { getBotSubscriberChatIds, sendInBatches } from '../services/broadcastService.js';
-import { getZoneName } from './deliveryPricing.js';
+import * as areaService from '../services/areaService.js';
 
 let botInstance = null;
 
@@ -103,14 +103,21 @@ function buildGoogleMapsLink(order) {
   return `https://www.google.com/maps?q=${lat},${lng}`;
 }
 
-function formatDriverOrderMessage(order) {
+async function resolveAreaLabel(order) {
+  if (order?.location?.areaName) return order.location.areaName;
+  const zoneKey = order?.location?.zone;
+  if (!zoneKey) return 'N/A';
+  const area = await areaService.getAreaByKey(zoneKey);
+  return area?.name || zoneKey;
+}
+
+async function formatDriverOrderMessage(order) {
   const orderId = order._id.toString().slice(-6);
   const customerPhone = order.phone || order.userId?.phone || 'N/A';
   const customerName = order.userId?.name || 'Customer';
   const merchantName = order.merchantId?.name || 'Merchant';
   const merchantPhone = order.merchantId?.phone;
-  const zoneKey = order.location?.zone;
-  const zoneLabel = zoneKey ? getZoneName(zoneKey) : 'N/A';
+  const zoneLabel = await resolveAreaLabel(order);
   const address = order.location?.address || 'N/A';
   const items = order.items
     .map((i) => `• ${i.productName} (${i.quality}) x${i.quantity}`)
@@ -255,12 +262,11 @@ function paymentRecipientChatIds(payment) {
   return chatIds;
 }
 
-function formatNewOrderAlert(order) {
+async function formatNewOrderAlert(order) {
   const orderId = order._id.toString().slice(-6);
   const customerName = order.userId?.name || 'Customer';
   const customerPhone = order.phone || order.userId?.phone || 'N/A';
-  const zoneKey = order.location?.zone;
-  const zoneLabel = zoneKey ? getZoneName(zoneKey) : 'N/A';
+  const zoneLabel = await resolveAreaLabel(order);
   const address = order.location?.address || 'N/A';
   const items = order.items
     .map((i) => `• ${i.productName} (${i.quality}) x${i.quantity}`)
@@ -287,7 +293,7 @@ function formatNewOrderAlert(order) {
 
 export const notifications = {
   async newOrder(merchant, order) {
-    const message = formatNewOrderAlert(order);
+    const message = await formatNewOrderAlert(order);
     const adminChatId = env.telegram.adminChatId ? String(env.telegram.adminChatId) : null;
     const merchantChatId = merchant?.telegramId ? String(merchant.telegramId) : null;
 
@@ -445,7 +451,7 @@ export const notifications = {
 
   async driverAssigned(driver, order) {
     if (!driver?.telegramId) return;
-    await sendTelegramMessage(driver.telegramId, formatDriverOrderMessage(order));
+    await sendTelegramMessage(driver.telegramId, await formatDriverOrderMessage(order));
   },
 
   async broadcast(message, options) {

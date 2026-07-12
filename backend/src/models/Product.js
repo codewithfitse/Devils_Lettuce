@@ -14,7 +14,6 @@ const deliveryOptionSchema = new mongoose.Schema(
   {
     key: { type: String, required: true, trim: true },
     name: { type: String, required: true, trim: true },
-    fee: { type: Number, required: true, min: 0 },
   },
   { _id: false }
 );
@@ -33,7 +32,7 @@ const productSchema = new mongoose.Schema(
     deliveryZones: { type: [String], default: [] },
     /**
      * Product-level delivery options (hybrid rollout).
-     * If set, fees/places are taken from these options instead of shared DeliveryZone pricing.
+     * Product-level delivery areas. Price is computed from Area.km at checkout.
      */
     deliveryOptions: { type: [deliveryOptionSchema], default: [] },
   },

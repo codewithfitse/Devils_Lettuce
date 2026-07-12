@@ -43,6 +43,9 @@ const orderSchema = new mongoose.Schema(
     location: {
       address: { type: String, required: true },
       zone: { type: String },
+      areaName: { type: String },
+      km: { type: Number },
+      deliveryPrice: { type: Number },
       coordinates: {
         lat: { type: Number },
         lng: { type: Number },

@@ -2,7 +2,7 @@ import { Telegraf, session, Markup } from 'telegraf';
 import env from '../config/env.js';
 import { setBotInstance } from '../utils/notifications.js';
 import { t } from './i18n.js';
-import { authTelegram, getProducts, createOrders, getOrders, getDeliveryZones, uploadPayment, getFileUrl } from './api.js';
+import { authTelegram, getProducts, createOrders, getOrders, getDeliveryAreas, uploadPayment, getFileUrl } from './api.js';
 import {
   languageKeyboard,
   mainMenuKeyboard,
@@ -10,7 +10,7 @@ import {
   variantKeyboard,
   quantityKeyboard,
   cartKeyboard,
-  zoneKeyboard,
+  paginatedAreaKeyboard,
 } from './keyboards.js';
 import {
   findProduct,
@@ -301,15 +301,17 @@ export function startBot() {
 
     if (checkout?.step === 'address') {
       ctx.session.checkout.address = text;
-      ctx.session.checkout.step = 'zone';
+      ctx.session.checkout.step = 'area';
       try {
         const productIds = [...new Set(ctx.session.cart.map((i) => i.productId))];
-        const zones = await getDeliveryZones(productIds);
-        if (!zones.length) {
+        const areas = await getDeliveryAreas(productIds);
+        if (!areas.length) {
           ctx.session.checkout = null;
           return ctx.reply(t(lang, 'noDeliveryZones'));
         }
-        return ctx.reply(t(lang, 'selectZone'), zoneKeyboard(zones, lang));
+        ctx.session.checkout.areas = areas;
+        const { keyboard } = paginatedAreaKeyboard(areas, lang, 0);
+        return ctx.reply(t(lang, 'selectArea'), keyboard);
       } catch {
         return ctx.reply(t(lang, 'error'));
       }
@@ -337,23 +339,39 @@ export function startBot() {
 
     ctx.session.checkout.address = 'Shared location';
     ctx.session.checkout.coordinates = { lat: latitude, lng: longitude };
-    ctx.session.checkout.step = 'zone';
+    ctx.session.checkout.step = 'area';
 
     try {
       const productIds = [...new Set(ctx.session.cart.map((i) => i.productId))];
-      const zones = await getDeliveryZones(productIds);
-      if (!zones.length) {
+      const areas = await getDeliveryAreas(productIds);
+      if (!areas.length) {
         ctx.session.checkout = null;
         return ctx.reply(t(lang, 'noDeliveryZones'));
       }
-      return ctx.reply(t(lang, 'selectZone'), zoneKeyboard(zones, lang));
+      ctx.session.checkout.areas = areas;
+      const { keyboard } = paginatedAreaKeyboard(areas, lang, 0);
+      return ctx.reply(t(lang, 'selectArea'), keyboard);
     } catch {
       return ctx.reply(t(lang, 'error'));
     }
   });
 
-  bot.action(/^zone_(.+)$/, async (ctx) => {
-    const zone = ctx.match[1];
+  bot.action(/^areas_page_(\d+)$/, async (ctx) => {
+    const lang = ctx.session.lang;
+    const checkout = ctx.session.checkout;
+    await ctx.answerCbQuery();
+
+    const page = parseInt(ctx.match[1], 10);
+    if (!checkout?.areas?.length) {
+      return ctx.editMessageText(t(lang, 'error'));
+    }
+
+    const { keyboard } = paginatedAreaKeyboard(checkout.areas, lang, page);
+    await ctx.editMessageText(t(lang, 'selectArea'), keyboard);
+  });
+
+  bot.action(/^area_(.+)$/, async (ctx) => {
+    const areaKey = ctx.match[1];
     const lang = ctx.session.lang;
     const checkout = ctx.session.checkout;
     await ctx.answerCbQuery();
@@ -362,14 +380,23 @@ export function startBot() {
       return ctx.editMessageText(t(lang, 'error'));
     }
 
+    const area = checkout.areas?.find((a) => a.key === areaKey);
+    if (!area) {
+      return ctx.editMessageText(t(lang, 'error'));
+    }
+
     try {
+      await ctx.editMessageText(
+        t(lang, 'deliveryPriceConfirm', { area: area.name, price: area.price })
+      );
+
       await handleAuth(ctx);
       const orders = await createOrders(ctx.session.token, {
         cartItems: ctx.session.cart,
         phone: checkout.phone,
         location: {
           address: checkout.address,
-          zone,
+          zone: areaKey,
           ...(checkout.coordinates
             ? { coordinates: checkout.coordinates }
             : {}),
@@ -380,10 +407,10 @@ export function startBot() {
       ctx.session.cart = [];
       ctx.session.checkout = null;
 
-      await ctx.editMessageText(t(lang, 'orderPlaced', { ids }));
+      await ctx.reply(t(lang, 'orderPlaced', { ids }));
       await ctx.reply(t(lang, 'mainMenu'), mainMenuKeyboard(lang));
     } catch (error) {
-      await ctx.editMessageText(`${t(lang, 'error')}\n${error.message}`);
+      await ctx.reply(`${t(lang, 'error')}\n${error.message}`);
     }
   });
 

@@ -17,12 +17,12 @@ export async function getDeliveryZones(req, res) {
       .split(',')
       .map((id) => id.trim())
       .filter(Boolean);
-    const zones = await deliveryService.getZonesForProducts(productIds);
-    return res.json({ success: true, data: zones });
+    const areas = await deliveryService.getAreasForProducts(productIds);
+    return res.json({ success: true, data: areas });
   }
 
-  const zones = await deliveryService.getDeliveryZones();
-  res.json({ success: true, data: zones });
+  const areas = await deliveryService.getDeliveryAreas();
+  res.json({ success: true, data: areas });
 }
 
 export async function estimateFee(req, res) {

@@ -1,6 +1,6 @@
 import Product from '../models/Product.js';
 import { AppError } from '../middleware/errorHandler.js';
-import { validateZoneKeys, getAllZoneKeys } from '../utils/deliveryPricing.js';
+import * as areaService from '../services/areaService.js';
 import { newProductAnnouncement } from '../utils/notifications.js';
 
 function triggerProductAnnouncement(product) {
@@ -23,12 +23,10 @@ function normalizeDeliveryZones(data) {
       data.deliveryZones = [];
     }
   }
-  const err = validateZoneKeys(data.deliveryZones);
-  if (err) throw new AppError(err, 400);
   return data;
 }
 
-function normalizeDeliveryOptions(data) {
+async function normalizeDeliveryOptions(data) {
   if (data.deliveryOptions === undefined) return data;
   if (typeof data.deliveryOptions === 'string') {
     try {
@@ -42,34 +40,35 @@ function normalizeDeliveryOptions(data) {
     throw new AppError('Invalid delivery options format', 400);
   }
 
-  // Validate keys exist in the deliveryPricing ZONES set.
-  const allowedKeys = new Set(getAllZoneKeys());
+  const areas = await areaService.getAllAreas();
+  const areaMap = new Map(areas.map((a) => [a.key, a]));
   const normalized = [];
+
   for (const opt of data.deliveryOptions || []) {
     if (!opt) continue;
     const key = typeof opt.key === 'string' ? opt.key.trim() : null;
-    const fee = Number(opt.fee);
-    const name = typeof opt.name === 'string' ? opt.name.trim() : '';
+    const area = key ? areaMap.get(key) : null;
 
-    if (!key || !allowedKeys.has(key)) {
+    if (!key || !area) {
       throw new AppError(`Invalid delivery area: ${key || 'unknown'}`, 400);
     }
-    if (!name) {
-      throw new AppError('Delivery option name is required', 400);
-    }
-    if (!Number.isFinite(fee) || fee < 0) {
-      throw new AppError('Delivery option fee must be a valid non-negative number', 400);
-    }
 
-    normalized.push({ key, name, fee });
+    normalized.push({ key, name: area.name });
   }
 
   if (normalized.length === 0) {
-    throw new AppError('Select at least one delivery option', 400);
+    throw new AppError('Select at least one delivery area', 400);
   }
 
   data.deliveryOptions = normalized;
+  data.deliveryZones = normalized.map((o) => o.key);
   return data;
+}
+
+async function validateDeliveryZones(data) {
+  if (!data.deliveryZones?.length) return;
+  const err = await areaService.validateAreaKeys(data.deliveryZones);
+  if (err) throw new AppError(err, 400);
 }
 
 export async function getProducts(filters = {}) {
@@ -111,7 +110,8 @@ export async function createProduct(data, owner) {
   }
 
   normalizeDeliveryZones(data);
-  normalizeDeliveryOptions(data);
+  await normalizeDeliveryOptions(data);
+  await validateDeliveryZones(data);
 
   const product = await Product.create({
     ...data,
@@ -161,12 +161,14 @@ export async function updateProduct(id, data, requester) {
 
   if (data.deliveryZones !== undefined) {
     normalizeDeliveryZones(data);
+    await validateDeliveryZones(data);
     product.deliveryZones = data.deliveryZones;
   }
 
   if (data.deliveryOptions !== undefined) {
-    normalizeDeliveryOptions(data);
+    await normalizeDeliveryOptions(data);
     product.deliveryOptions = data.deliveryOptions;
+    product.deliveryZones = data.deliveryZones;
   }
 
   if (!requester.isSuperAdmin()) {

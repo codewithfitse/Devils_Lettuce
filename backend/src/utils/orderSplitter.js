@@ -1,28 +1,30 @@
 import Product from '../models/Product.js';
 import { AppError } from '../middleware/errorHandler.js';
-import { getAllZoneKeys, getZoneName } from './deliveryPricing.js';
-import { getFee } from '../services/deliveryPricingService.js';
+import * as areaService from '../services/areaService.js';
 
 export function getAllowedZoneKeys(product) {
   if (product?.deliveryOptions?.length) {
     return product.deliveryOptions.map((o) => o.key);
   }
-  return product?.deliveryZones?.length ? product.deliveryZones : getAllZoneKeys();
+  return product?.deliveryZones?.length ? product.deliveryZones : null;
 }
 
-export function getDeliveryFeeForProductAndZone(product, zone, sharedFee) {
-  if (product?.deliveryOptions?.length) {
-    return product.deliveryOptions.find((o) => o.key === zone)?.fee ?? sharedFee;
+export async function getDeliveryFeeForArea(product, areaKey, sharedFee) {
+  const allowed = getAllowedZoneKeys(product);
+  if (allowed && !allowed.includes(areaKey)) {
+    return 0;
   }
   return sharedFee;
 }
 
-function assertProductAllowsZone(product, zone) {
-  if (!zone) return;
+async function assertProductAllowsArea(product, areaKey) {
+  if (!areaKey) return;
   const allowed = getAllowedZoneKeys(product);
-  if (!allowed.includes(zone)) {
+  if (allowed && !allowed.includes(areaKey)) {
+    const area = await areaService.getAreaByKey(areaKey);
+    const label = area?.name || areaKey;
     throw new AppError(
-      `"${product.name}" is not delivered to ${getZoneName(zone)}. Remove it from your cart or pick another area.`,
+      `"${product.name}" is not delivered to ${label}. Remove it from your cart or pick another area.`,
       400
     );
   }
@@ -31,11 +33,12 @@ function assertProductAllowsZone(product, zone) {
 /**
  * Splits cart items by merchant and validates stock/pricing.
  * @param {Array} cartItems - [{ productId, variantId, quantity }]
- * @param {string} [zone] - delivery zone key
+ * @param {string} [areaKey] - delivery area key (stored as location.zone)
  */
-export async function splitCartByMerchant(cartItems, zone) {
+export async function splitCartByMerchant(cartItems, areaKey) {
   const merchantMap = new Map();
-  const sharedFee = zone ? await getFee(zone) : 0;
+  const area = areaKey ? await areaService.getAreaByKey(areaKey) : null;
+  const sharedFee = area?.price ?? 0;
 
   for (const item of cartItems) {
     const product = await Product.findById(item.productId).populate('ownerId', 'name');
@@ -43,7 +46,7 @@ export async function splitCartByMerchant(cartItems, zone) {
       throw new AppError(`Product ${item.productId} is not available`, 400);
     }
 
-    assertProductAllowsZone(product, zone);
+    await assertProductAllowsArea(product, areaKey);
 
     const variant = product.variants.id(item.variantId);
     if (!variant) {
@@ -54,11 +57,7 @@ export async function splitCartByMerchant(cartItems, zone) {
     }
 
     const merchantId = product.ownerId._id.toString();
-
-    // Delivery fee for this specific product when shipping to `zone`.
-    // - New-model product: use its deliveryOptions fee for the zone
-    // - Legacy product: fall back to shared DeliveryZone fee
-    const deliveryFeeForZone = getDeliveryFeeForProductAndZone(product, zone, sharedFee);
+    const deliveryFeeForZone = await getDeliveryFeeForArea(product, areaKey, sharedFee);
 
     const orderItem = {
       productId: product._id,
@@ -87,7 +86,7 @@ export async function splitCartByMerchant(cartItems, zone) {
   return Array.from(merchantMap.values());
 }
 
-export async function applyDeliveryFee(merchantGroups, _zone) {
+export async function applyDeliveryFee(merchantGroups, _areaKey) {
   return merchantGroups.map((group) => ({
     ...group,
     deliveryFee: Math.max(
@@ -99,4 +98,11 @@ export async function applyDeliveryFee(merchantGroups, _zone) {
       ...(group.items?.map((i) => Number(i.deliveryFeeForZone) || 0) || [0])
     ),
   }));
+}
+
+/** @deprecated use getDeliveryFeeForArea */
+export function getDeliveryFeeForProductAndZone(product, zone, sharedFee) {
+  const allowed = getAllowedZoneKeys(product);
+  if (allowed && !allowed.includes(zone)) return 0;
+  return sharedFee;
 }

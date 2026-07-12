@@ -45,11 +45,28 @@ export async function getOrders(token) {
   return orderService.getOrders({}, user);
 }
 
-export async function getDeliveryZones(productIds) {
+export async function getDeliveryAreas(productIds) {
   if (productIds?.length) {
-    return deliveryService.getZonesForProducts(productIds);
+    return deliveryService.getAreasForProducts(productIds);
   }
-  return deliveryService.getDeliveryZones();
+  return deliveryService.getDeliveryAreas();
+}
+
+/** @deprecated alias */
+export async function getDeliveryZones(productIds) {
+  return getDeliveryAreas(productIds);
+}
+
+export async function getDeliveryZoneGroups(productIds) {
+  const areas = await getDeliveryAreas(productIds);
+  const groups = new Map();
+  for (const area of areas) {
+    if (!groups.has(area.zone)) groups.set(area.zone, []);
+    groups.get(area.zone).push(area);
+  }
+  return [...groups.entries()]
+    .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
+    .map(([zone, zoneAreas]) => ({ zone, areas: zoneAreas }));
 }
 
 export async function uploadPayment(token, orderIds, proofUrl, telebirrReference) {

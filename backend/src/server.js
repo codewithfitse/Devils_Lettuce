@@ -2,11 +2,13 @@ import app from './app.js';
 import env from './config/env.js';
 import { connectDB } from './config/db.js';
 import { expireStalePayments } from './services/paymentService.js';
+import { ensureSeedAreas } from './services/areaService.js';
 import { startBot, stopBot } from './bot/index.js';
 import { startKeepAlive } from './keepAlive.js';
 
 async function bootstrap() {
   await connectDB();
+  await ensureSeedAreas();
 
   const server = app.listen(env.port, () => {
     console.log(`Server running on port ${env.port} [${env.nodeEnv}]`);
