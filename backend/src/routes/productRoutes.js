@@ -28,5 +28,6 @@ router.patch(
 
 router.delete('/:id', authenticate, asyncHandler(productController.deleteProduct));
 router.patch('/:id/approve', authenticate, requireSuperAdmin, asyncHandler(productController.approveProduct));
+router.post('/:id/announce', authenticate, requireSuperAdmin, asyncHandler(productController.announceProduct));
 
 export default router;

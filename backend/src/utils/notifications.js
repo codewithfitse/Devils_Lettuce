@@ -1,4 +1,5 @@
 import env from '../config/env.js';
+import { getBotSubscriberChatIds, sendInBatches } from '../services/broadcastService.js';
 import { getZoneName } from './deliveryPricing.js';
 
 let botInstance = null;
@@ -7,26 +8,85 @@ export function setBotInstance(bot) {
   botInstance = bot;
 }
 
-async function sendTelegramMessage(chatId, message) {
-  if (!botInstance || !chatId) return;
+async function sendTelegramMessage(chatId, message, extra = {}) {
+  if (!botInstance || !chatId) return false;
   try {
-    await botInstance.telegram.sendMessage(chatId, message, { parse_mode: 'HTML' });
+    await botInstance.telegram.sendMessage(chatId, message, { parse_mode: 'HTML', ...extra });
+    return true;
   } catch (error) {
     console.error('Telegram notification failed:', error.message);
+    return false;
   }
 }
 
-async function sendTelegramPhoto(chatId, photoUrl, caption) {
-  if (!botInstance || !chatId) return;
+async function sendTelegramPhoto(chatId, photoUrl, caption, extra = {}) {
+  if (!botInstance || !chatId) return false;
   try {
     await botInstance.telegram.sendPhoto(chatId, photoUrl, {
       caption,
       parse_mode: 'HTML',
+      ...extra,
     });
+    return true;
   } catch (error) {
     console.error('Telegram photo failed:', error.message);
-    await sendTelegramMessage(chatId, `${caption}\n\n📎 Proof: ${photoUrl}`);
+    return sendTelegramMessage(chatId, `${caption}\n\n📎 ${photoUrl}`, extra);
   }
+}
+
+function productBrowseKeyboard() {
+  return {
+    inline_keyboard: [[{ text: '🍎 Browse Products', callback_data: 'browse_products' }]],
+  };
+}
+
+function getLowestVariantPrice(product) {
+  const prices = (product.variants || [])
+    .map((v) => Number(v.price))
+    .filter((n) => Number.isFinite(n));
+  if (!prices.length) return null;
+  return Math.min(...prices);
+}
+
+function formatNewProductAnnouncement(product) {
+  const fromPrice = getLowestVariantPrice(product);
+  const priceLine = fromPrice != null ? `From <b>${fromPrice} ETB</b>\n` : '';
+  const desc = product.description?.trim();
+  const descLine = desc
+    ? `\n${desc.slice(0, 200)}${desc.length > 200 ? '…' : ''}\n`
+    : '\n';
+
+  return (
+    `🆕 <b>New product available!</b>\n\n` +
+    `<b>${product.name}</b>\n` +
+    priceLine +
+    descLine +
+    `\nTap <b>Browse Products</b> to order.`
+  );
+}
+
+export async function broadcastToAllUsers(message, options = {}) {
+  const { photoUrl, replyMarkup } = options;
+  const chatIds = await getBotSubscriberChatIds();
+  const extra = replyMarkup ? { reply_markup: replyMarkup } : {};
+
+  return sendInBatches(chatIds, (chatId) =>
+    photoUrl
+      ? sendTelegramPhoto(chatId, photoUrl, message, extra)
+      : sendTelegramMessage(chatId, message, extra)
+  );
+}
+
+export async function newProductAnnouncement(product) {
+  if (!product?.isActive || !product?.isApproved) {
+    return { total: 0, sent: 0, failed: 0, skipped: true };
+  }
+
+  const message = formatNewProductAnnouncement(product);
+  return broadcastToAllUsers(message, {
+    photoUrl: product.image || undefined,
+    replyMarkup: productBrowseKeyboard(),
+  });
 }
 
 async function notifyRecipients(chatIds, message, photoUrl) {
@@ -386,5 +446,13 @@ export const notifications = {
   async driverAssigned(driver, order) {
     if (!driver?.telegramId) return;
     await sendTelegramMessage(driver.telegramId, formatDriverOrderMessage(order));
+  },
+
+  async broadcast(message, options) {
+    return broadcastToAllUsers(message, options);
+  },
+
+  async newProduct(product) {
+    return newProductAnnouncement(product);
   },
 };

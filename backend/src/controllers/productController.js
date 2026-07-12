@@ -76,6 +76,11 @@ export async function approveProduct(req, res) {
   res.json({ success: true, data: product });
 }
 
+export async function announceProduct(req, res) {
+  const stats = await productService.announceProduct(req.params.id);
+  res.json({ success: true, data: stats });
+}
+
 export async function getMyProducts(req, res) {
   const products = await productService.getOwnerProducts(req.user._id);
   res.json({ success: true, data: products });

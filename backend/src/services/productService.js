@@ -1,6 +1,18 @@
 import Product from '../models/Product.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { validateZoneKeys, getAllZoneKeys } from '../utils/deliveryPricing.js';
+import { newProductAnnouncement } from '../utils/notifications.js';
+
+function triggerProductAnnouncement(product) {
+  newProductAnnouncement(product).then((stats) => {
+    if (stats.skipped) return;
+    console.log(
+      `[Broadcast] New product "${product.name}": ${stats.sent}/${stats.total} sent (${stats.failed} failed)`
+    );
+  }).catch((err) => {
+    console.error('[Broadcast] Product announcement failed:', err.message);
+  });
+}
 
 function normalizeDeliveryZones(data) {
   if (data.deliveryZones === undefined) return data;
@@ -107,12 +119,18 @@ export async function createProduct(data, owner) {
     isApproved: owner.isSuperAdmin(),
   });
 
-  return product.populate('ownerId', 'name phone');
+  const populated = await product.populate('ownerId', 'name phone');
+  if (populated.isApproved && populated.isActive) {
+    triggerProductAnnouncement(populated);
+  }
+  return populated;
 }
 
 export async function updateProduct(id, data, requester) {
   const product = await Product.findById(id);
   if (!product) throw new AppError('Product not found', 404);
+
+  const wasApproved = product.isApproved;
 
   if (!requester.isSuperAdmin() && product.ownerId.toString() !== requester._id.toString()) {
     throw new AppError('You can only modify your own products', 403);
@@ -157,7 +175,11 @@ export async function updateProduct(id, data, requester) {
   }
 
   await product.save();
-  return product.populate('ownerId', 'name phone');
+  const populated = await product.populate('ownerId', 'name phone');
+  if (!wasApproved && populated.isApproved && populated.isActive) {
+    triggerProductAnnouncement(populated);
+  }
+  return populated;
 }
 
 export async function deleteProduct(id, requester) {
@@ -176,9 +198,26 @@ export async function deleteProduct(id, requester) {
 export async function approveProduct(id) {
   const product = await Product.findById(id);
   if (!product) throw new AppError('Product not found', 404);
+  const wasApproved = product.isApproved;
   product.isApproved = true;
   await product.save();
-  return product;
+  const populated = await product.populate('ownerId', 'name phone');
+  if (!wasApproved && populated.isActive) {
+    triggerProductAnnouncement(populated);
+  }
+  return populated;
+}
+
+export async function announceProduct(id) {
+  const product = await Product.findById(id).populate('ownerId', 'name phone');
+  if (!product) throw new AppError('Product not found', 404);
+  if (!product.isApproved) {
+    throw new AppError('Approve the product before announcing it', 400);
+  }
+  if (!product.isActive) {
+    throw new AppError('Product must be visible before announcing it', 400);
+  }
+  return newProductAnnouncement(product);
 }
 
 export async function updateStock(productId, quality, quantity) {

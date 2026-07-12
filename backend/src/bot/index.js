@@ -50,6 +50,31 @@ export function startBot() {
 
   bot.use(session({ defaultSession }));
 
+  bot.command('announce', async (ctx) => {
+    const lang = ctx.session.lang || 'en';
+    try {
+      await handleAuth(ctx);
+      if (ctx.session.user?.role !== 'super_admin') {
+        return ctx.reply('Only super admin can broadcast messages.');
+      }
+
+      const text = ctx.message.text.replace(/^\/announce(@\w+)?\s*/i, '').trim();
+      if (!text) {
+        return ctx.reply('Usage: /announce Your message here');
+      }
+
+      await ctx.reply('Sending broadcast…');
+      const { broadcastToAllUsers } = await import('../utils/notifications.js');
+      const stats = await broadcastToAllUsers(text);
+      await ctx.reply(
+        `✅ Broadcast complete.\nSent: ${stats.sent}/${stats.total}\nFailed: ${stats.failed}`
+      );
+    } catch (error) {
+      console.error('[Telegram] /announce failed:', error.message);
+      await ctx.reply(t(lang, 'error'));
+    }
+  });
+
   // /start
   bot.start(async (ctx) => {
     if (!ctx.session.lang || ctx.session.lang === 'en' && !ctx.session.user) {
