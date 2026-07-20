@@ -302,10 +302,109 @@ function buildFailureResult({ receiptUrl, transactionId, fetchError, parsed, htt
 }
 
 /**
- * Fetch and parse official receipt. Falls back to user-uploaded PDF when HTML fetch fails.
+ * Map a successful Veritas Telebirr response body into the parsed-field shape
+ * returned by parseReceiptHtml. Written against the real response body:
+ *   { success: true, data: { creditedPartyName, creditedPartyAccountNo,
+ *     transactionStatus, receiptNo, settledAmount, ... } }
+ */
+function parseVeritasReceipt(body, transactionId) {
+  const data = body?.data || {};
+  return {
+    creditedPartyName: cleanText(data.creditedPartyName) || null,
+    creditedPartyAccount: cleanText(data.creditedPartyAccountNo) || null,
+    // Veritas already returns e.g. "Completed"; checkTransactionStatus matches on "completed".
+    transactionStatus: cleanText(data.transactionStatus) || null,
+    settledAmount: parseAmount(data.settledAmount),
+    invoiceNo: cleanText(data.receiptNo) || (transactionId ? transactionId.toUpperCase() : null),
+    // Keep the raw provider result for troubleshooting.
+    veritasRaw: body,
+  };
+}
+
+/**
+ * Look up a Telebirr receipt through the Veritas in-country relay.
+ * Returns a success result on a verified receipt, or null so the caller can
+ * fall back to the Ethio Telecom scrape / PDF upload.
+ */
+export async function fetchReceiptFromVeritas(transactionId) {
+  if (!env.veritasApiKey) return null;
+
+  const verifyUrl = `${env.veritasApiUrl.replace(/\/$/, '')}/verify`;
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= RETRY_COUNT; attempt += 1) {
+    try {
+      const response = await axios.post(
+        verifyUrl,
+        { reference: transactionId },
+        {
+          timeout: FETCH_TIMEOUT_MS,
+          headers: {
+            'x-api-key': env.veritasApiKey,
+            'content-type': 'application/json',
+            Accept: 'application/json',
+          },
+          validateStatus: (status) => status < 500,
+        }
+      );
+
+      const body = response.data;
+      // Inspect BOTH the HTTP status and the JSON body: some adapters signal a
+      // provider failure with HTTP 200, so trust body.success for success.
+      const verified =
+        response.status >= 200 &&
+        response.status < 300 &&
+        body?.success === true &&
+        body?.data;
+
+      if (!verified) {
+        lastError = body?.error || `HTTP ${response.status}`;
+        // 4xx (bad/unknown reference) is definitive — don't retry, fall back.
+        if (response.status >= 400 && response.status < 500) {
+          console.warn(`Veritas could not verify ${transactionId}: ${lastError}`);
+          return null;
+        }
+        if (attempt < RETRY_COUNT) await sleep(RETRY_DELAY_MS);
+        continue;
+      }
+
+      const parsed = parseVeritasReceipt(body, transactionId);
+      if (!hasParsedData(parsed)) return null;
+
+      return buildSuccessResult({
+        receiptUrl: buildReceiptUrl(transactionId),
+        transactionId,
+        parsed,
+        source: 'veritas',
+        httpStatus: response.status,
+      });
+    } catch (error) {
+      lastError = error.message || 'Network error';
+      if (attempt < RETRY_COUNT) await sleep(RETRY_DELAY_MS);
+    }
+  }
+
+  if (lastError) console.warn(`Veritas receipt lookup failed for ${transactionId}: ${lastError}`);
+  return null;
+}
+
+/**
+ * Fetch and parse official receipt. Prefers the in-country Veritas relay, then
+ * falls back to the Ethio Telecom HTML scrape and user-uploaded PDF.
  */
 export async function fetchOfficialReceipt(transactionId, { receiptPdfUrl, receiptPdfBuffer } = {}) {
   const receiptUrl = buildReceiptUrl(transactionId);
+
+  if (env.veritasEnabled) {
+    try {
+      const veritasResult = await fetchReceiptFromVeritas(transactionId);
+      if (veritasResult && hasParsedData(veritasResult)) {
+        return veritasResult;
+      }
+    } catch (error) {
+      console.warn(`Veritas lookup errored, falling back to Ethio Telecom: ${error.message}`);
+    }
+  }
 
   const htmlResult = await fetchReceiptHtml(receiptUrl);
   if (htmlResult.ok) {

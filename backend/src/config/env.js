@@ -91,6 +91,9 @@ export default {
   telebirrReceiptFetchTimeoutMs:
     parseInt(process.env.TELEBIRR_RECEIPT_FETCH_TIMEOUT_MS, 10) || 45000,
   telebirrReceiptProxyUrl: process.env.TELEBIRR_RECEIPT_PROXY_URL || '',
+  veritasApiUrl: process.env.VERITAS_API_URL || 'https://verifyapi.leulzenebe.pro',
+  veritasApiKey: process.env.VERITAS_API_KEY || '',
+  veritasEnabled: Boolean(process.env.VERITAS_API_KEY) && process.env.VERITAS_ENABLED !== 'false',
   paymentVerifyEnabled: process.env.PAYMENT_VERIFY_ENABLED !== 'false',
   paymentAutoApproveEnabled: process.env.PAYMENT_AUTO_APPROVE_ENABLED !== 'false',
   paymentAutoApproveMinConfidence:
