@@ -3,6 +3,7 @@ import { orderApi, deliveryApi } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import OrderStatusBadge from '../../components/OrderStatusBadge';
 import OrderFilterTabs, { splitOrders } from '../../components/OrderFilterTabs';
+import { orderAddressLabel, orderMapUrl } from '../../utils/orderLocation';
 
 function getId(ref) {
   return ref?._id ? String(ref._id) : ref ? String(ref) : null;
@@ -12,6 +13,7 @@ function MerchantOrderCard({ order, user, run }) {
   const driverId = getId(order.assignedDriverId);
   const isSelf = driverId === String(user._id);
   const hasDriver = Boolean(driverId);
+  const mapsUrl = orderMapUrl(order);
 
   return (
     <div className="card">
@@ -25,7 +27,14 @@ function MerchantOrderCard({ order, user, run }) {
         ))}
       </ul>
       <p style={{ fontWeight: 600 }}>{order.totalPrice + (order.deliveryFee || 0)} ETB</p>
-      <p style={{ fontSize: '0.85rem', color: 'var(--color-muted)' }}>{order.location?.address}</p>
+      <p style={{ fontSize: '0.85rem', color: 'var(--color-muted)' }}>{orderAddressLabel(order)}</p>
+      {mapsUrl && (
+        <p style={{ marginTop: '0.35rem' }}>
+          <a href={mapsUrl} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline">
+            Open Map
+          </a>
+        </p>
+      )}
       {(order.phone || order.userId?.phone) && (
         <p style={{ fontSize: '0.9rem', marginTop: '0.35rem' }}>
           <strong>Customer phone:</strong>{' '}

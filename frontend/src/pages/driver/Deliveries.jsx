@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { deliveryApi, orderApi } from '../../services/api';
 import OrderStatusBadge from '../../components/OrderStatusBadge';
+import { orderAddressLabel, orderMapUrl } from '../../utils/orderLocation';
 
 const ZONE_LABELS = {
   jemo: 'Jemo',
@@ -21,16 +22,9 @@ function customerPhone(order) {
   return order.phone || order.userId?.phone;
 }
 
-function mapLink(order) {
-  const lat = order.location?.coordinates?.lat;
-  const lng = order.location?.coordinates?.lng;
-  if (typeof lat !== 'number' || typeof lng !== 'number') return null;
-  return `https://www.google.com/maps?q=${lat},${lng}`;
-}
-
 function OrderCard({ order, actions, showFullDetails = false }) {
   const phone = customerPhone(order);
-  const mapsUrl = mapLink(order);
+  const mapsUrl = orderMapUrl(order);
 
   return (
     <div className="card">
@@ -65,7 +59,7 @@ function OrderCard({ order, actions, showFullDetails = false }) {
       </p>
 
       <p style={{ fontSize: '0.85rem', color: 'var(--color-muted)' }}>
-        📍 {order.location?.address} ({zoneName(order.location?.zone)})
+        📍 {orderAddressLabel(order)} ({zoneName(order.location?.zone)})
       </p>
 
       {mapsUrl && (

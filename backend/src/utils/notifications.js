@@ -36,6 +36,21 @@ async function sendTelegramPhoto(chatId, photoUrl, caption, extra = {}) {
   }
 }
 
+async function sendTelegramLocation(chatId, order) {
+  const lat = order?.location?.coordinates?.lat;
+  const lng = order?.location?.coordinates?.lng;
+  if (!botInstance || !chatId || typeof lat !== 'number' || typeof lng !== 'number') {
+    return false;
+  }
+  try {
+    await botInstance.telegram.sendLocation(chatId, lat, lng);
+    return true;
+  } catch (error) {
+    console.error('Telegram location failed:', error.message);
+    return false;
+  }
+}
+
 function productBrowseKeyboard() {
   return {
     inline_keyboard: [[{ text: '🍎 Browse Products', callback_data: 'browse_products' }]],
@@ -105,6 +120,20 @@ function buildGoogleMapsLink(order) {
   return `https://www.google.com/maps?q=${lat},${lng}`;
 }
 
+function formatMapLinkHtml(order) {
+  const mapsUrl = buildGoogleMapsLink(order);
+  if (!mapsUrl) return '';
+  return `\n<a href="${mapsUrl}">📍 Open in Google Maps</a>`;
+}
+
+function formatAddressLabel(order) {
+  const address = order?.location?.address;
+  if (address === 'Shared location' && buildGoogleMapsLink(order)) {
+    return 'Shared GPS pin (see map below)';
+  }
+  return address || 'N/A';
+}
+
 async function resolveAreaLabel(order) {
   if (order?.location?.areaName) return order.location.areaName;
   const zoneKey = order?.location?.zone;
@@ -120,7 +149,7 @@ async function formatDriverOrderMessage(order) {
   const merchantName = order.merchantId?.name || 'Merchant';
   const merchantPhone = order.merchantId?.phone;
   const zoneLabel = await resolveAreaLabel(order);
-  const address = order.location?.address || 'N/A';
+  const address = formatAddressLabel(order);
   const items = order.items
     .map((i) => `• ${i.productName} (${i.quality}) x${i.quantity}`)
     .join('\n');
@@ -150,10 +179,15 @@ async function formatDriverOrderMessage(order) {
   }
 
   if (mapsUrl) {
-    text += `\n<b>Open map:</b> ${mapsUrl}`;
+    text += formatMapLinkHtml(order);
   }
 
   return text;
+}
+
+async function notifyOrderLocation(chatId, order) {
+  if (!chatId) return;
+  await sendTelegramLocation(chatId, order);
 }
 
 function formatVerificationRecommendation(recommendation) {
@@ -269,7 +303,7 @@ async function formatNewOrderAlert(order) {
   const customerName = order.userId?.name || 'Customer';
   const customerPhone = order.phone || order.userId?.phone || 'N/A';
   const zoneLabel = await resolveAreaLabel(order);
-  const address = order.location?.address || 'N/A';
+  const address = formatAddressLabel(order);
   const items = order.items
     .map((i) => `• ${i.productName} (${i.quality}) x${i.quantity}`)
     .join('\n');
@@ -289,6 +323,7 @@ async function formatNewOrderAlert(order) {
   }
 
   text += `\n\n⏳ <b>Pending</b> — open Admin or Merchant → Orders to accept or reject.`;
+  text += formatMapLinkHtml(order);
 
   return text;
 }
@@ -301,9 +336,11 @@ export const notifications = {
 
     if (merchantChatId) {
       await sendTelegramMessage(merchantChatId, message);
+      await notifyOrderLocation(merchantChatId, order);
     }
     if (adminChatId && adminChatId !== merchantChatId) {
       await sendTelegramMessage(adminChatId, message);
+      await notifyOrderLocation(adminChatId, order);
     }
   },
 
@@ -439,10 +476,15 @@ export const notifications = {
       `Order #${order._id.toString().slice(-6)}\n` +
       `Zone: ${order.location?.zone || 'N/A'}\n` +
       `Fee: ${order.deliveryFee || 0} ETB\n` +
-      (mapsUrl ? `Map: ${mapsUrl}\n` : '') +
+      (mapsUrl ? formatMapLinkHtml(order) + '\n' : '') +
       `Open the driver panel to claim it.`;
 
-    await Promise.all(drivers.map((d) => sendTelegramMessage(d.telegramId, message)));
+    await Promise.all(
+      drivers.map(async (d) => {
+        await sendTelegramMessage(d.telegramId, message);
+        await notifyOrderLocation(d.telegramId, order);
+      })
+    );
   },
 
   async orderClaimed(user, order, driver) {
@@ -460,6 +502,7 @@ export const notifications = {
   async driverAssigned(driver, order) {
     if (!driver?.telegramId) return;
     await sendTelegramMessage(driver.telegramId, await formatDriverOrderMessage(order));
+    await notifyOrderLocation(driver.telegramId, order);
   },
 
   async broadcast(message, options) {

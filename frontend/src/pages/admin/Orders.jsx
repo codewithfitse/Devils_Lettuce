@@ -3,6 +3,7 @@ import { orderApi, deliveryApi } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import OrderStatusBadge from '../../components/OrderStatusBadge';
 import OrderFilterTabs, { splitOrders } from '../../components/OrderFilterTabs';
+import { orderAddressLabel, orderMapUrl } from '../../utils/orderLocation';
 
 function getId(ref) {
   return ref?._id ? String(ref._id) : ref ? String(ref) : null;
@@ -35,6 +36,8 @@ function OrderCard({ order, user, run }) {
   const driverId = getId(order.assignedDriverId);
   const isSelf = driverId === String(user._id);
   const hasDriver = Boolean(driverId);
+  const mapsUrl = orderMapUrl(order);
+  const phone = order.phone || order.userId?.phone;
 
   return (
     <div className="card">
@@ -45,9 +48,24 @@ function OrderCard({ order, user, run }) {
       <p style={{ fontSize: '0.85rem', color: 'var(--color-muted)' }}>
         {order.userId?.name} → {order.merchantId?.name} · {order.totalPrice + (order.deliveryFee || 0)} ETB
       </p>
+      {phone && (
+        <p style={{ fontSize: '0.85rem' }}>
+          <strong>Phone:</strong>{' '}
+          <a href={`tel:${phone}`} style={{ color: 'var(--color-primary)' }}>
+            {phone}
+          </a>
+        </p>
+      )}
       <p style={{ fontSize: '0.85rem', color: 'var(--color-muted)' }}>
-        📍 {order.location?.address} ({order.location?.zone})
+        📍 {orderAddressLabel(order)} ({order.location?.zone})
       </p>
+      {mapsUrl && (
+        <p style={{ marginTop: '0.35rem' }}>
+          <a href={mapsUrl} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline">
+            Open Map
+          </a>
+        </p>
+      )}
       <p style={{ fontSize: '0.85rem', marginTop: '0.5rem' }}>{statusHint(order.status)}</p>
 
       {hasDriver && (
