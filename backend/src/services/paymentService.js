@@ -12,6 +12,7 @@ import {
   resolveTransactionKey,
 } from '../utils/transactionDuplicate.js';
 import { recordPaymentViolation } from './paymentViolationService.js';
+import { parseTelebirrText } from '../utils/telebirrParser.js';
 import axios from 'axios';
 
 const PAYMENT_EXPIRY_MS = 24 * 60 * 60 * 1000;
@@ -29,7 +30,7 @@ async function resolveProofHash(proofUrl, proofBuffer) {
 }
 
 export async function createPayment(
-  { orderIds, telebirrReference, officialReceiptPdf },
+  { orderIds, telebirrReference, officialReceiptPdf, smsText },
   user,
   proofUrl,
   proofBuffer = null
@@ -54,7 +55,17 @@ export async function createPayment(
 
   const totalAmount = orders.reduce((sum, o) => sum + o.totalPrice + o.deliveryFee, 0);
 
-  const transactionKey = normalizeTransactionRef(telebirrReference);
+  let resolvedReference = telebirrReference?.trim() || '';
+  if (!resolvedReference && smsText?.trim()) {
+    const parsed = parseTelebirrText(smsText, {
+      expectedAmount: totalAmount,
+      expectedAccount: env.telebirrAccount,
+      userReference: telebirrReference,
+    });
+    resolvedReference = parsed.transactionId || parsed.reference || '';
+  }
+
+  const transactionKey = normalizeTransactionRef(resolvedReference);
   const proofHash = await resolveProofHash(proofUrl, proofBuffer);
 
   const duplicateCheck = await assertTransactionAvailable({ transactionKey, proofHash });
@@ -74,7 +85,8 @@ export async function createPayment(
     proof: proofUrl,
     officialReceiptPdf,
     proofHash,
-    telebirrReference,
+    telebirrReference: resolvedReference || undefined,
+    telebirrSmsText: smsText ? smsText.slice(0, 4000) : undefined,
     transactionKey,
     status: PAYMENT_STATUS.PENDING,
     expiresAt: new Date(Date.now() + PAYMENT_EXPIRY_MS),

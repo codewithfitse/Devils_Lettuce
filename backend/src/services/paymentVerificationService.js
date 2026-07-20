@@ -57,7 +57,7 @@ export async function processPaymentVerification(paymentId) {
   if (!env.paymentVerifyEnabled) return;
 
   const payment = await Payment.findById(paymentId);
-  if (!payment?.proof) return;
+  if (!payment?.proof && !payment?.telebirrSmsText && !payment?.telebirrReference) return;
 
   payment.verification = {
     status: VERIFICATION_STATUS.PROCESSING,
@@ -65,37 +65,50 @@ export async function processPaymentVerification(paymentId) {
   await payment.save();
 
   try {
-    const imageBuffer = await downloadImage(payment.proof);
-    const proofHash = payment.proofHash || hashProofBuffer(imageBuffer);
+    let proofHash = payment.proofHash;
+    let ocrText = '';
 
-    const hashDuplicate = await assertTransactionAvailable({
-      proofHash,
-      excludePaymentId: payment._id,
-    });
-    if (hashDuplicate.duplicate) {
-      await rejectPaymentForDuplicate(payment, {
-        reason: hashDuplicate.message,
-        duplicateOfPaymentId: hashDuplicate.existingPaymentId,
-        duplicateType: 'proof_image',
+    if (payment.proof) {
+      const imageBuffer = await downloadImage(payment.proof);
+      proofHash = payment.proofHash || hashProofBuffer(imageBuffer);
+
+      const hashDuplicate = await assertTransactionAvailable({
+        proofHash,
+        excludePaymentId: payment._id,
       });
-      return;
+      if (hashDuplicate.duplicate) {
+        await rejectPaymentForDuplicate(payment, {
+          reason: hashDuplicate.message,
+          duplicateOfPaymentId: hashDuplicate.existingPaymentId,
+          duplicateType: 'proof_image',
+        });
+        return;
+      }
+
+      if (!payment.proofHash) {
+        payment.proofHash = proofHash;
+        await payment.save();
+      }
+
+      const preprocessed = await preprocessImage(imageBuffer);
+      ocrText = await runOcr(preprocessed);
     }
 
-    if (!payment.proofHash) {
-      payment.proofHash = proofHash;
-      await payment.save();
-    }
-
-    const preprocessed = await preprocessImage(imageBuffer);
-    const userTransactionId = resolveTransactionId(payment.telebirrReference, '');
+    const smsFallbackText = payment.telebirrSmsText || '';
+    const userTransactionId = resolveTransactionId(
+      payment.telebirrReference,
+      smsFallbackText
+    );
     const receiptFetchPromise = userTransactionId
       ? fetchOfficialReceipt(userTransactionId, {
           receiptPdfUrl: payment.officialReceiptPdf,
         })
       : null;
 
-    const ocrText = await runOcr(preprocessed);
-    const transactionId = resolveTransactionId(payment.telebirrReference, ocrText);
+    const transactionId = resolveTransactionId(
+      payment.telebirrReference,
+      ocrText || smsFallbackText
+    );
 
     if (!transactionId) {
       payment.verification = {

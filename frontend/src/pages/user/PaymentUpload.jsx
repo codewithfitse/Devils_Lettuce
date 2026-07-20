@@ -9,6 +9,7 @@ export default function PaymentUpload() {
   const [proof, setProof] = useState(null);
   const [receiptPdf, setReceiptPdf] = useState(null);
   const [reference, setReference] = useState('');
+  const [smsText, setSmsText] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -32,16 +33,17 @@ export default function PaymentUpload() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!proof || !selected.length) return;
+    if ((!proof && !smsText && !reference) || !selected.length) return;
 
     setLoading(true);
     setError('');
     try {
       const formData = new FormData();
-      formData.append('proof', proof);
+      if (proof) formData.append('proof', proof);
       if (receiptPdf) formData.append('receiptPdf', receiptPdf);
       formData.append('orderIds', JSON.stringify(selected));
       if (reference) formData.append('telebirrReference', reference);
+      if (smsText) formData.append('smsText', smsText);
 
       await paymentApi.create(formData);
       navigate('/orders');
@@ -97,15 +99,30 @@ export default function PaymentUpload() {
         <p style={{ fontWeight: 700, margin: '1rem 0' }}>Total: {total} ETB</p>
 
         <div className="form-group">
-          <label>Transaction Number (from receipt)</label>
+          <label>Paste the Telebirr SMS you received</label>
+          <textarea
+            value={smsText}
+            onChange={(e) => setSmsText(e.target.value)}
+            rows={5}
+            placeholder="Paste the full confirmation SMS from Telebirr here..."
+          />
+          <p style={{ fontSize: '0.85rem', color: 'var(--color-muted)', marginTop: '0.35rem' }}>
+            Copy the full confirmation SMS text (not a screenshot). We read the transaction number
+            exactly from it, so digits like i/1 and s/5 are never misread.
+          </p>
+        </div>
+
+        <div className="form-group">
+          <label>Transaction Number (optional override)</label>
           <input
             value={reference}
             onChange={(e) => setReference(e.target.value)}
             placeholder="e.g. DG38HZNHRO"
           />
           <p style={{ fontSize: '0.85rem', color: 'var(--color-muted)', marginTop: '0.35rem' }}>
-            Find this on your Telebirr receipt under Transaction Number or Invoice No.
-            Open the official receipt link and use <strong>Download PDF</strong> if verification fails on the server.
+            Optional — only if the SMS paste above did not include it. Pasting the SMS is preferred
+            because we read exact characters. Open the official receipt link and use{' '}
+            <strong>Download PDF</strong> if verification fails on the server.
           </p>
         </div>
 
@@ -122,8 +139,12 @@ export default function PaymentUpload() {
         </div>
 
         <div className="form-group">
-          <label>Payment Screenshot</label>
-          <input type="file" accept="image/*" required onChange={(e) => setProof(e.target.files[0])} />
+          <label>Payment Screenshot (optional if SMS pasted above)</label>
+          <input type="file" accept="image/*" onChange={(e) => setProof(e.target.files[0] || null)} />
+          <p style={{ fontSize: '0.85rem', color: 'var(--color-muted)', marginTop: '0.35rem' }}>
+            Upload a screenshot as a fallback when you cannot paste the SMS. Not required if you
+            pasted the SMS or entered the transaction number above.
+          </p>
         </div>
 
         <button type="submit" className="btn btn-primary" disabled={loading || !selected.length}>

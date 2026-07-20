@@ -9,7 +9,7 @@ export async function createPayment(req, res) {
   if (proofFile) {
     proofUrl = await uploadImage(proofFile);
   }
-  if (!proofUrl) {
+  if (!proofUrl && !req.body.smsText && !req.body.telebirrReference) {
     return res.status(400).json({ success: false, message: 'Payment proof required' });
   }
 

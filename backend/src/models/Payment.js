@@ -90,6 +90,7 @@ const paymentSchema = new mongoose.Schema(
     autoApproved: { type: Boolean, default: false },
     rejectionReason: { type: String },
     telebirrReference: { type: String },
+    telebirrSmsText: { type: String },
     transactionKey: { type: String, trim: true },
     proofHash: { type: String },
     duplicateViolation: { type: Boolean, default: false },

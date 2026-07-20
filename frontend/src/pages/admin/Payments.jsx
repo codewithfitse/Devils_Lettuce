@@ -49,6 +49,24 @@ export default function AdminPayments() {
                 User reference: {p.telebirrReference}
               </p>
             )}
+            {p.telebirrSmsText && (
+              <details style={{ fontSize: '0.85rem', color: 'var(--color-muted)', marginTop: '0.35rem' }}>
+                <summary>Pasted Telebirr SMS</summary>
+                <pre
+                  style={{
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                    marginTop: '0.35rem',
+                    padding: '0.5rem',
+                    background: 'var(--color-surface-elevated, rgba(0,0,0,0.04))',
+                    borderRadius: '6px',
+                    fontSize: '0.8rem',
+                  }}
+                >
+                  {p.telebirrSmsText}
+                </pre>
+              </details>
+            )}
 
             {p.duplicateViolation && (
               <div className="alert alert-error" style={{ marginTop: '0.75rem' }}>
