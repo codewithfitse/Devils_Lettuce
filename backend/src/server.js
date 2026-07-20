@@ -14,6 +14,15 @@ async function bootstrap() {
     console.log(`Server running on port ${env.port} [${env.nodeEnv}]`);
   });
 
+  if (env.veritasEnabled) {
+    console.log(`Veritas receipt verification enabled (${env.veritasApiUrl})`);
+  } else {
+    console.log(
+      'Veritas receipt verification disabled — set VERITAS_API_KEY to use the ' +
+        'in-country relay (falling back to the Ethio Telecom scrape + PDF upload).'
+    );
+  }
+
   if (env.telegram.botToken && env.telegram.enabled) {
     console.log('Starting Telegram bot...');
     startBot();
