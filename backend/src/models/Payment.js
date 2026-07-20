@@ -66,7 +66,7 @@ const verificationSchema = new mongoose.Schema(
       fetchedAt: { type: Date },
       fetchError: { type: String },
       httpStatus: { type: Number },
-      source: { type: String, enum: ['html', 'pdf'] },
+      source: { type: String, enum: ['veritas', 'html', 'pdf'] },
     },
   },
   { _id: false }
