@@ -94,5 +94,28 @@ if (process.env.LIVE_RECEIPT_TEST === '1') {
   assert('live receipt scores likely_real', liveScore.recommendation === 'likely_real');
 }
 
+// Live Veritas relay test. Requires VERITAS_API_KEY (and optionally
+// VERITAS_TEST_REF, default DG38HZNHRO) to be set in the environment.
+// Run: VERITAS_API_KEY=sk_live_... LIVE_VERITAS_TEST=1 node src/scripts/testOfficialReceipt.js
+if (process.env.LIVE_VERITAS_TEST === '1') {
+  const { fetchReceiptFromVeritas } = await import('../services/telebirrReceiptService.js');
+  const ref = process.env.VERITAS_TEST_REF || 'DG38HZNHRO';
+  const veritas = await fetchReceiptFromVeritas(ref);
+  assert('veritas returns a result', veritas != null);
+  assert('veritas source tagged', veritas?.source === 'veritas');
+  assert('veritas ok', veritas?.ok === true);
+  assert('veritas maps invoice no', veritas?.invoiceNo === ref.toUpperCase());
+  assert('veritas maps a settled amount', typeof veritas?.settledAmount === 'number');
+  assert('veritas status completed', String(veritas?.transactionStatus).toLowerCase().includes('completed'));
+  assert('veritas keeps raw response', veritas?.veritasRaw?.success === true);
+  const veritasScore = scoreOfficialReceipt({
+    receipt: veritas,
+    expectedAmount: veritas?.settledAmount ?? 1,
+    expectedAccount: '0982863015',
+    expectedName: 'Fitsum Zerihun Tadesse',
+  });
+  assert('veritas receipt scores likely_real', veritasScore.recommendation === 'likely_real');
+}
+
 console.log(`\n${passed}/${passed + failed} tests passed`);
 if (failed > 0) process.exit(1);
