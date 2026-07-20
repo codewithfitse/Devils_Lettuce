@@ -14,7 +14,7 @@ export function languageKeyboard() {
 export function mainMenuKeyboard(lang) {
   return Markup.keyboard([
     [t(lang, 'browseProducts'), t(lang, 'myCart')],
-    [t(lang, 'myOrders'), t(lang, 'uploadPayment')],
+    [t(lang, 'myOrders')],
     [t(lang, 'settings')],
   ]).resize();
 }

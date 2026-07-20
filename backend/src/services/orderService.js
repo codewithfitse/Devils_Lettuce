@@ -193,7 +193,7 @@ function assertOrderAccess(order, requester) {
 }
 
 export async function acceptOrder(id, requester) {
-  const order = await Order.findById(id).populate('userId', 'name telegramId');
+  const order = await Order.findById(id).populate('userId', 'name telegramId language');
   if (!order) throw new AppError('Order not found', 404);
 
   assertMerchantOwnership(order, requester, 'Only the merchant who owns this order can accept it');

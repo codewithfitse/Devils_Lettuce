@@ -23,13 +23,16 @@ export const en = {
   deliveryPriceConfirm: 'Delivery to {area} will cost {price} ETB',
   noDeliveryZones: 'No shared delivery area for items in your cart. Remove an item or try again later.',
   orderPlaced: '✅ Order placed successfully!\nOrder ID(s): {ids}\n\nMerchants will review your order.',
-  uploadPayment: '💳 Upload Payment',
-  sendPaymentProof:
-    'Paste the full Telebirr confirmation SMS below (preferred), or send a screenshot as a fallback.\n\n' +
-    'Copy the SMS text exactly — we read the transaction number from it so digits are never misread.',
+  orderAcceptedPayment:
+    '✅ <b>Order Accepted!</b>\nOrder #{id} has been accepted.\n\n{totalLine}\n<b>Telebirr Account: {account}</b>\n\n' +
+    'Reply here with the full Telebirr confirmation SMS (copy-paste the text).',
   telebirrAccount: 'Telebirr Account: {account}',
-  paymentUploaded: '✅ Payment proof uploaded! Admin will validate within 24 hours.',
-  noAcceptedOrders: 'No orders awaiting payment.',
+  paymentUploaded: '✅ Payment received! Verifying now…',
+  paymentConfirmed: '✅ Payment confirmed! Your order is being prepared for delivery.',
+  paymentRejected: '❌ Payment could not be verified.\n{reason}',
+  paymentPendingReview:
+    'Payment received, but we could not verify it automatically. Please contact support or try again.',
+  noOrdersAwaitingPayment: 'No orders are waiting for payment right now.',
   orderStatus: 'Order #{id}\nStatus: {status}\nTotal: {total} ETB',
   back: '⬅️ Back',
   cancel: '❌ Cancel',
@@ -67,13 +70,16 @@ export const am = {
   deliveryPriceConfirm: 'ወደ {area} መላኪያ {price} ብር ይከፍላል',
   noDeliveryZones: 'ለጋሪዎ ያሉ ምርቶች مشترك የመላኪያ ቦታ የለም። እባክዎ ምርት ያስወግዱ ወይም ቆይተው ይሞክሩ።',
   orderPlaced: '✅ ትዕዛዝ ተሳክቷል!\nትዕዛዝ ID: {ids}\n\nነጋዴዎች ትዕዛዝዎን ይገመግማሉ።',
-  uploadPayment: '💳 ክፍያ ይላኩ',
-  sendPaymentProof:
-    'ሙሉ የቴሌብር ማረጋገጫ SMS ከዚህ በታች ይለጥፉ (ይመረጣል)፣ ወይም ስክሪንሾት ይላኩ።\n\n' +
-    'SMS ጽሑፉን በትክክል ይቅዱ — የሂሳብ እንቅስቃሴ ቁጥሩን ከዚያ በትክክል እንነባለን።',
+  orderAcceptedPayment:
+    '✅ <b>ትዕዛዝ ተቀባይነት አግኝቷል!</b>\nትዕዛዝ #{id} ተቀባይነት አግኝቷል።\n\n{totalLine}\n<b>ቴሌብር መለያ: {account}</b>\n\n' +
+    'ሙሉ የቴሌብር ማረጋገጫ SMS እዚህ ይለጥፉ (ጽሑፉን ይቅዱ)።',
   telebirrAccount: 'ቴሌብር መለያ: {account}',
-  paymentUploaded: '✅ የክፍያ ማረጋገጫ ተላክቷል! አስተዳዳሪ በ24 ሰዓት ውስጥ ያረጋግጣል።',
-  noAcceptedOrders: 'ክፍያ የሚጠብቁ ትዕዛዞች የሉም።',
+  paymentUploaded: '✅ ክፍያዎ ተቀብሏል! አሁን እያረጋገጥን ነው…',
+  paymentConfirmed: '✅ ክፍያዎ ተረጋግጧል! ትዕዛዝዎ ለመላኪያ እየተዘጋጀ ነው።',
+  paymentRejected: '❌ ክፍያው ሊረጋገጥ አልቻለም።\n{reason}',
+  paymentPendingReview:
+    'ክፍያዎ ተቀብሏል፣ ነገር ግን በራስ-ሰር ሊረጋገጥ አልቻለም። እባክዎ ድጋፍ ያግኙ ወይም እንደገና ይሞክሩ።',
+  noOrdersAwaitingPayment: 'አሁን ክፍያ የሚጠብቅ ትዕዛዝ የለም።',
   orderStatus: 'ትዕዛዝ #{id}\nሁኔታ: {status}\nጠቅላላ: {total} ETB',
   back: '⬅️ ተመለስ',
   cancel: '❌ ይቅር',

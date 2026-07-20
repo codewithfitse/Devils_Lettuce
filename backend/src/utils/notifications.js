@@ -1,6 +1,8 @@
 import env from '../config/env.js';
 import { getBotSubscriberChatIds, sendInBatches } from '../services/broadcastService.js';
 import * as areaService from '../services/areaService.js';
+import { t } from '../bot/i18n.js';
+import { markAwaitingPaymentSms } from '../bot/pendingPayments.js';
 
 let botInstance = null;
 
@@ -307,22 +309,27 @@ export const notifications = {
 
   async orderAccepted(user, order) {
     if (!user.telegramId) return;
+    const lang = user.language || 'en';
     const deliveryFee = order.deliveryFee || 0;
     const total = order.totalPrice + deliveryFee;
     const totalLine =
       deliveryFee > 0
-        ? `<b>Total to pay: ${total} ETB</b> (${order.totalPrice} + ${deliveryFee} delivery)`
-        : `<b>Total to pay: ${total} ETB</b>`;
+        ? lang === 'am'
+          ? `<b>የመክፈያ ጠቅላላ: ${total} ብር</b> (${order.totalPrice} + ${deliveryFee} መላኪያ)`
+          : `<b>Total to pay: ${total} ETB</b> (${order.totalPrice} + ${deliveryFee} delivery)`
+        : lang === 'am'
+          ? `<b>የመክፈያ ጠቅላላ: ${total} ብር</b>`
+          : `<b>Total to pay: ${total} ETB</b>`;
 
     await sendTelegramMessage(
       user.telegramId,
-      `✅ <b>Order Accepted!</b>\n` +
-        `Order #${order._id.toString().slice(-6)} has been accepted.\n` +
-        `Please upload your Telebirr payment.\n` +
-        `Paste the confirmation SMS text here, or send a screenshot.\n\n` +
-        `<b>Telebirr Account: ${env.telebirrAccount}</b>\n` +
-        totalLine
+      t(lang, 'orderAcceptedPayment', {
+        id: order._id.toString().slice(-6),
+        totalLine,
+        account: env.telebirrAccount,
+      })
     );
+    markAwaitingPaymentSms(user.telegramId, order._id);
   },
 
   async orderRejected(user, order, reason) {

@@ -45,6 +45,11 @@ export async function getOrders(token) {
   return orderService.getOrders({}, user);
 }
 
+export async function getAcceptedOrders(token) {
+  const user = await getUserFromToken(token);
+  return orderService.getOrders({ status: 'accepted' }, user);
+}
+
 export async function getDeliveryAreas(productIds) {
   if (productIds?.length) {
     return deliveryService.getAreasForProducts(productIds);
@@ -69,9 +74,19 @@ export async function getDeliveryZoneGroups(productIds) {
     .map(([zone, zoneAreas]) => ({ zone, areas: zoneAreas }));
 }
 
-export async function uploadPayment(token, orderIds, { proofUrl = null, telebirrReference, smsText } = {}) {
+export async function uploadPayment(
+  token,
+  orderIds,
+  { proofUrl = null, telebirrReference, smsText, verifyImmediately = true } = {}
+) {
   const user = await getUserFromToken(token);
-  return paymentService.createPayment({ orderIds, telebirrReference, smsText }, user, proofUrl);
+  return paymentService.createPayment(
+    { orderIds, telebirrReference, smsText },
+    user,
+    proofUrl,
+    null,
+    { verifyImmediately }
+  );
 }
 
 export async function getFileUrl(ctx, fileId) {

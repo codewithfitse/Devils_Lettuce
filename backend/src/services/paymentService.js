@@ -33,7 +33,8 @@ export async function createPayment(
   { orderIds, telebirrReference, officialReceiptPdf, smsText },
   user,
   proofUrl,
-  proofBuffer = null
+  proofBuffer = null,
+  { verifyImmediately = false } = {}
 ) {
   const orders = await Order.find({
     _id: { $in: orderIds },
@@ -104,6 +105,13 @@ export async function createPayment(
       { path: 'orderIds', populate: { path: 'merchantId', select: 'name telegramId' } },
     ])
   );
+
+  if (verifyImmediately && env.paymentVerifyEnabled) {
+    const { processPaymentVerification } = await import('./paymentVerificationService.js');
+    await processPaymentVerification(payment._id);
+    return Payment.findById(payment._id).populate('orderIds');
+  }
+
   schedulePaymentVerification(payment._id);
   return payment.populate('orderIds');
 }

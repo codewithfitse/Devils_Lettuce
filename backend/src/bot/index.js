@@ -2,7 +2,11 @@ import { Telegraf, session, Markup } from 'telegraf';
 import env from '../config/env.js';
 import { setBotInstance } from '../utils/notifications.js';
 import { t } from './i18n.js';
-import { authTelegram, getProducts, createOrders, getOrders, getDeliveryAreas, uploadPayment, getFileUrl } from './api.js';
+import { authTelegram, getProducts, createOrders, getOrders, getAcceptedOrders, getDeliveryAreas, uploadPayment, getFileUrl } from './api.js';
+import {
+  clearAwaitingPaymentOrders,
+  peekAwaitingPaymentOrders,
+} from './pendingPayments.js';
 import {
   languageKeyboard,
   mainMenuKeyboard,
@@ -30,8 +34,65 @@ const defaultSession = () => ({
   cart: [],
   checkout: null,
   customQty: null,
-  awaitingPayment: false,
 });
+
+function looksLikeTelebirrPayment(text) {
+  const trimmed = text.trim();
+  if (/^[A-Za-z0-9]{10,12}$/.test(trimmed)) return true;
+  if (trimmed.length < 20) return false;
+  return (
+    /ethiotelecom|transactioninfo|telebirr|transaction\s*number|invoice\s*no/i.test(trimmed) ||
+    /[A-Z][A-Z0-9]{9,11}/.test(trimmed) ||
+    /ብር|ተሳክ/.test(trimmed)
+  );
+}
+
+async function replyWithPaymentResult(ctx, payment, lang) {
+  if (payment.status === 'approved') {
+    await ctx.reply(t(lang, 'paymentConfirmed'));
+    return;
+  }
+
+  if (payment.status === 'rejected') {
+    const reason =
+      payment.rejectionReason ||
+      payment.verification?.error ||
+      'Please paste the Telebirr SMS again or contact support.';
+    await ctx.reply(t(lang, 'paymentRejected', { reason }));
+    return;
+  }
+
+  await ctx.reply(t(lang, 'paymentPendingReview'));
+}
+
+async function submitTelebirrPaymentFromText(ctx, text) {
+  const lang = ctx.session.lang;
+  const trimmed = text.trim();
+
+  await handleAuth(ctx);
+
+  let orderIds = peekAwaitingPaymentOrders(ctx.from.id);
+  if (!orderIds?.length) {
+    const accepted = await getAcceptedOrders(ctx.session.token);
+    if (!accepted.length) {
+      await ctx.reply(t(lang, 'noOrdersAwaitingPayment'));
+      return true;
+    }
+    orderIds = accepted.map((o) => o._id.toString());
+  }
+
+  const txnOnly = /^[A-Za-z0-9]{10,12}$/.test(trimmed);
+  await ctx.reply(t(lang, 'paymentUploaded'));
+  const payment = await uploadPayment(ctx.session.token, orderIds, {
+    proofUrl: null,
+    smsText: txnOnly ? undefined : trimmed,
+    telebirrReference: txnOnly ? trimmed.toUpperCase() : undefined,
+    verifyImmediately: true,
+  });
+  clearAwaitingPaymentOrders(ctx.from.id);
+  await replyWithPaymentResult(ctx, payment, lang);
+  return true;
+}
 
 export function startBot() {
   if (!env.telegram.botToken) {
@@ -266,6 +327,27 @@ export function startBot() {
     const lang = ctx.session.lang;
     const text = ctx.message.text;
     const checkout = ctx.session.checkout;
+    const pendingPayment = peekAwaitingPaymentOrders(ctx.from.id);
+
+    if (pendingPayment && looksLikeTelebirrPayment(text)) {
+      try {
+        await submitTelebirrPaymentFromText(ctx, text);
+        return;
+      } catch (error) {
+        await ctx.reply(`${t(lang, 'error')}\n${error.message}`);
+        return;
+      }
+    }
+
+    if (looksLikeTelebirrPayment(text) && !ctx.session.customQty && !checkout) {
+      try {
+        await submitTelebirrPaymentFromText(ctx, text);
+        return;
+      } catch (error) {
+        await ctx.reply(`${t(lang, 'error')}\n${error.message}`);
+        return;
+      }
+    }
 
     if (ctx.session.customQty) {
       const qty = parseInt(text, 10);
@@ -315,25 +397,6 @@ export function startBot() {
       } catch {
         return ctx.reply(t(lang, 'error'));
       }
-    }
-
-    if (ctx.session.awaitingPayment?.length) {
-      try {
-        await handleAuth(ctx);
-        const trimmed = text.trim();
-        const txnOnly = /^[A-Za-z0-9]{10,12}$/.test(trimmed);
-
-        await uploadPayment(ctx.session.token, ctx.session.awaitingPayment, {
-          proofUrl: null,
-          smsText: txnOnly ? undefined : trimmed,
-          telebirrReference: txnOnly ? trimmed.toUpperCase() : undefined,
-        });
-        ctx.session.awaitingPayment = false;
-        await ctx.reply(t(lang, 'paymentUploaded'));
-      } catch (error) {
-        await ctx.reply(`${t(lang, 'error')}\n${error.message}`);
-      }
-      return;
     }
 
     return next();
@@ -455,40 +518,29 @@ export function startBot() {
     }
   });
 
-  // Payment upload
-  bot.hears(/Upload Payment|ክፍያ ይላኩ/, async (ctx) => {
+  bot.on('photo', async (ctx) => {
+    if (ctx.session.checkout || ctx.session.customQty) return;
+
     const lang = ctx.session.lang;
     try {
       await handleAuth(ctx);
-      const orders = await getOrders(ctx.session.token);
-      const accepted = orders.filter((o) => o.status === 'accepted');
-
-      if (!accepted.length) {
-        return ctx.reply(t(lang, 'noAcceptedOrders'));
+      let orderIds = peekAwaitingPaymentOrders(ctx.from.id);
+      if (!orderIds?.length) {
+        const accepted = await getAcceptedOrders(ctx.session.token);
+        if (!accepted.length) return;
+        orderIds = accepted.map((o) => o._id.toString());
       }
 
-      ctx.session.awaitingPayment = accepted.map((o) => o._id);
-      await ctx.reply(
-        `${t(lang, 'sendPaymentProof')}\n\n<b>${t(lang, 'telebirrAccount', { account: env.telebirrAccount })}</b>`,
-        { parse_mode: 'HTML' }
-      );
-    } catch {
-      ctx.reply(t(lang, 'error'));
-    }
-  });
-
-  bot.on('photo', async (ctx) => {
-    if (!ctx.session.awaitingPayment?.length) return;
-
-    const lang = ctx.session.lang;
-    try {
-      await handleAuth(ctx);
       const photo = ctx.message.photo[ctx.message.photo.length - 1];
       const proofUrl = await getFileUrl(ctx, photo.file_id);
 
-      await uploadPayment(ctx.session.token, ctx.session.awaitingPayment, { proofUrl });
-      ctx.session.awaitingPayment = false;
       await ctx.reply(t(lang, 'paymentUploaded'));
+      const payment = await uploadPayment(ctx.session.token, orderIds, {
+        proofUrl,
+        verifyImmediately: true,
+      });
+      clearAwaitingPaymentOrders(ctx.from.id);
+      await replyWithPaymentResult(ctx, payment, lang);
     } catch (error) {
       await ctx.reply(`${t(lang, 'error')}\n${error.message}`);
     }
