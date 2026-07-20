@@ -317,6 +317,25 @@ export function startBot() {
       }
     }
 
+    if (ctx.session.awaitingPayment?.length) {
+      try {
+        await handleAuth(ctx);
+        const trimmed = text.trim();
+        const txnOnly = /^[A-Za-z0-9]{10,12}$/.test(trimmed);
+
+        await uploadPayment(ctx.session.token, ctx.session.awaitingPayment, {
+          proofUrl: null,
+          smsText: txnOnly ? undefined : trimmed,
+          telebirrReference: txnOnly ? trimmed.toUpperCase() : undefined,
+        });
+        ctx.session.awaitingPayment = false;
+        await ctx.reply(t(lang, 'paymentUploaded'));
+      } catch (error) {
+        await ctx.reply(`${t(lang, 'error')}\n${error.message}`);
+      }
+      return;
+    }
+
     return next();
   });
 
@@ -467,7 +486,7 @@ export function startBot() {
       const photo = ctx.message.photo[ctx.message.photo.length - 1];
       const proofUrl = await getFileUrl(ctx, photo.file_id);
 
-      await uploadPayment(ctx.session.token, ctx.session.awaitingPayment, proofUrl);
+      await uploadPayment(ctx.session.token, ctx.session.awaitingPayment, { proofUrl });
       ctx.session.awaitingPayment = false;
       await ctx.reply(t(lang, 'paymentUploaded'));
     } catch (error) {

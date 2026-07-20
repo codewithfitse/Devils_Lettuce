@@ -69,9 +69,9 @@ export async function getDeliveryZoneGroups(productIds) {
     .map(([zone, zoneAreas]) => ({ zone, areas: zoneAreas }));
 }
 
-export async function uploadPayment(token, orderIds, proofUrl, telebirrReference) {
+export async function uploadPayment(token, orderIds, { proofUrl = null, telebirrReference, smsText } = {}) {
   const user = await getUserFromToken(token);
-  return paymentService.createPayment({ orderIds, telebirrReference }, user, proofUrl);
+  return paymentService.createPayment({ orderIds, telebirrReference, smsText }, user, proofUrl);
 }
 
 export async function getFileUrl(ctx, fileId) {

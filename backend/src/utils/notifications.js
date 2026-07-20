@@ -318,7 +318,8 @@ export const notifications = {
       user.telegramId,
       `✅ <b>Order Accepted!</b>\n` +
         `Order #${order._id.toString().slice(-6)} has been accepted.\n` +
-        `Please upload your Telebirr payment proof.\n\n` +
+        `Please upload your Telebirr payment.\n` +
+        `Paste the confirmation SMS text here, or send a screenshot.\n\n` +
         `<b>Telebirr Account: ${env.telebirrAccount}</b>\n` +
         totalLine
     );

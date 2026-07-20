@@ -24,7 +24,9 @@ export const en = {
   noDeliveryZones: 'No shared delivery area for items in your cart. Remove an item or try again later.',
   orderPlaced: '✅ Order placed successfully!\nOrder ID(s): {ids}\n\nMerchants will review your order.',
   uploadPayment: '💳 Upload Payment',
-  sendPaymentProof: 'Please send a screenshot of your Telebirr payment.',
+  sendPaymentProof:
+    'Paste the full Telebirr confirmation SMS below (preferred), or send a screenshot as a fallback.\n\n' +
+    'Copy the SMS text exactly — we read the transaction number from it so digits are never misread.',
   telebirrAccount: 'Telebirr Account: {account}',
   paymentUploaded: '✅ Payment proof uploaded! Admin will validate within 24 hours.',
   noAcceptedOrders: 'No orders awaiting payment.',
@@ -66,7 +68,9 @@ export const am = {
   noDeliveryZones: 'ለጋሪዎ ያሉ ምርቶች مشترك የመላኪያ ቦታ የለም። እባክዎ ምርት ያስወግዱ ወይም ቆይተው ይሞክሩ።',
   orderPlaced: '✅ ትዕዛዝ ተሳክቷል!\nትዕዛዝ ID: {ids}\n\nነጋዴዎች ትዕዛዝዎን ይገመግማሉ።',
   uploadPayment: '💳 ክፍያ ይላኩ',
-  sendPaymentProof: 'የቴሌብር ክፍያ ስክሪንሾት ይላኩ።',
+  sendPaymentProof:
+    'ሙሉ የቴሌብር ማረጋገጫ SMS ከዚህ በታች ይለጥፉ (ይመረጣል)፣ ወይም ስክሪንሾት ይላኩ።\n\n' +
+    'SMS ጽሑፉን በትክክል ይቅዱ — የሂሳብ እንቅስቃሴ ቁጥሩን ከዚያ በትክክል እንነባለን።',
   telebirrAccount: 'ቴሌብር መለያ: {account}',
   paymentUploaded: '✅ የክፍያ ማረጋገጫ ተላክቷል! አስተዳዳሪ በ24 ሰዓት ውስጥ ያረጋግጣል።',
   noAcceptedOrders: 'ክፍያ የሚጠብቁ ትዕዛዞች የሉም።',
